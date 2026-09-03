@@ -76,6 +76,16 @@ systemctl --user daemon-reload
 systemctl --user enable --now kairos-vllm kairos-embed kairos-worker kairos-gateway
 ```
 
+**서빙 옵션은 유닛이 아니라 `kairos.env`에 있다.** 기획서 §7.1이 "모델과 서빙 옵션을 한 쌍으로 기록한다"고 정한 대로, 티어로 정해지는 값(모델 경로·컨텍스트 길이·GPU 점유·KV dtype·`compilation-config`·사고 모드·구조화 출력 백엔드)이 전부 모델 경로와 **같은 파일**에 모여 있다. 모델을 바꾸면 그 묶음을 함께 본다.
+
+JSON 값은 반드시 큰따옴표로 감싸 넘긴다(`"$KAIROS_TEXT_COMPILE"`). 값에 공백이 있어 감싸지 않으면 `sh`가 쪼개고, vLLM은 알 수 없는 인자로 죽는다. **systemd의 `EnvironmentFile`은 따옴표와 공백을 그대로 보존한다** — `sh`로 직접 `source` 했을 때와 다르므로 그것으로 확인하면 안 된다. 확인은 이렇게 한다.
+
+```bash
+systemd-run --user --wait --pipe --collect \
+  -p EnvironmentFile=%h/.config/kairos/kairos.env \
+  /bin/sh -c 'printf "%s\n" "$KAIROS_TEXT_COMPILE"'
+```
+
 **`kairos-vllm-vlm`은 enable하지 않는다.** 수신기가 필요할 때 `systemctl --user start`로 올리고 유휴 TTL에 내린다(§7.1 — 판단 태스크 여덟 중 비전은 하나뿐이라 상시 상주가 비용 대비 이득이 없다). 메인 모델이 비전을 겸하는 티어에서는 이 유닛을 아예 쓰지 않고 config에 `[llm.backend] vlm_describe = "local"`을 둔다(스왑 0).
 
 로그아웃 뒤에도 유닛이 살아 있으려면 lingering이 필요하다.
