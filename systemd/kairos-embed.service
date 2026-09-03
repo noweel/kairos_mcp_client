@@ -1,0 +1,16 @@
+[Unit]
+Description=KAIROS 임베딩 서버 (BGE-M3, CPU)
+Documentation=file:///deploy/README.md
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/kairos/kairos.env
+ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/kairos" embed serve --host 127.0.0.1 --port 8002'
+Restart=on-failure
+RestartSec=10
+# 최초 실행은 가중치를 내려받는다(약 2.7GB)
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=default.target

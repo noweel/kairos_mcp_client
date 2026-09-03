@@ -1,0 +1,19 @@
+[Unit]
+Description=KAIROS 수신기 (인입·정규화·저장)
+Documentation=file:///deploy/README.md
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/kairos/kairos.env
+ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/kairos" --root "$KAIROS_ROOT" run'
+Restart=always
+RestartSec=5
+# **모델 서버를 Requires로 걸지 않는다**(기획서 §7.0): 수집은 모델과 무관하게
+# 계속돼야 하고, 정규화만 대기하다 복구 시 자동 재개한다. 의존을 걸면 모델 장애가
+# 인입 장애가 되어 그 규정이 뒤집힌다.
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

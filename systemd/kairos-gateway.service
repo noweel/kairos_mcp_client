@@ -1,0 +1,16 @@
+[Unit]
+Description=KAIROS 게이트웨이 (MCP + 내부 API + 뷰어 서빙)
+Documentation=file:///deploy/README.md
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/kairos/kairos.env
+ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/kairos" --root "$KAIROS_ROOT" serve'
+Restart=always
+RestartSec=5
+# 임베딩 서버도 Requires로 걸지 않는다 — 없으면 FTS만으로 검색이 돈다(판정 §1).
+# 조회는 정규화와 달리 대기하지 않는다.
+
+[Install]
+WantedBy=default.target

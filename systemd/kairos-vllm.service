@@ -1,0 +1,25 @@
+[Unit]
+Description=KAIROS 상시 텍스트 모델 (vLLM)
+Documentation=file:///deploy/README.md
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/kairos/kairos.env
+# **모델과 서빙 옵션은 한 쌍이다**(기획서 §7.1) — 구조화 출력 안정성이 모델만의
+# 성질이 아니라 서빙 설정과의 조합이기 때문이다. 티어를 바꾸면 여기도 함께 본다.
+ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/vllm" serve "$KAIROS_TEXT_MODEL" \
+  --served-model-name "$KAIROS_TEXT_MODEL_NAME" \
+  --max-model-len "$KAIROS_TEXT_MAX_LEN" \
+  --kv-cache-dtype fp8 \
+  --max-num-seqs 1 \
+  --gpu-memory-utilization 0.96 \
+  --structured-outputs-config {"backend":"xgrammar","disable_any_whitespace":true} \
+  --host 127.0.0.1 --port 8000'
+Restart=on-failure
+RestartSec=10
+# 적재가 수 분 걸린다 — 짧으면 기동 중에 죽는다
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

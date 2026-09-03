@@ -1,0 +1,18 @@
+[Unit]
+Description=KAIROS 온디맨드 VLM (vLLM)
+Documentation=file:///deploy/README.md
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/kairos/kairos.env
+# **유닛 이름이 계약이다** — A9 `[llm.vlm].unit`의 기본값이 `kairos-vllm-vlm`이고
+# 수신기가 `systemctl --user start/stop`으로 이것을 직접 부른다(§6). 이름을 바꾸려면
+# config도 함께 바꾼다.
+ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/vllm" serve "$KAIROS_VLM_MODEL" \
+  --served-model-name "$KAIROS_VLM_MODEL_NAME" \
+  --host 127.0.0.1 --port 8001'
+Restart=no
+TimeoutStartSec=600
+
+# enable하지 않는다 — 수신기가 필요할 때만 올리고 유휴 TTL에 내린다(§7.1).
