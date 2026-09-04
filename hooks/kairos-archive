@@ -1,0 +1,332 @@
+#!/usr/bin/env python3
+"""KAIROS 대화 아카이브 훅 (P9-b · 보강계획 세션대화흐름 §3.5).
+
+에이전트 CLI의 대화록을 읽어 MCP `archive_turn`으로 보낸다. **클라이언트 기계에서
+돈다** — 게이트웨이와 다른 호스트일 수 있으므로 인푸터 SDK가 아니라 HTTP를 쓰고,
+KAIROS 체크아웃 없이 이 파일 하나만 복사해도 돌도록 표준 라이브러리만 쓴다.
+
+**무엇을 보낼지를 센다(허용 목록).** 게이트웨이의 인증은 "닫을 것"을 세지만
+(`gateway/__init__.py`) 여기는 반대다. 그쪽은 목록에 넣기를 잊으면 유출이고 여기는
+잊으면 그 종류가 아카이브되지 않을 뿐인데, 반대로 하면 **터미널 입출력이 통째로
+실려 간다**. 실측에서 그 자리에 GitHub 토큰과 평문 비밀번호가 있었다(2026-09-04).
+그래서 사람이 실제로 친 프롬프트와 어시스턴트의 답변 텍스트만 보낸다. 도구 호출·
+도구 결과·사고 블록·슬래시 명령 출력·bash 입출력은 전부 보내지 않는다.
+
+**그래도 새는 것은 서버가 받는다.** 어시스턴트가 답변 본문에 토큰을 적으면 허용
+목록으로는 걸러지지 않는다. 그것은 시크릿 스캔(추출기 §3.1)이 잡아 `sensitive`
+표시 + 로컬 백엔드 강제 + MCP 반환 시 마스킹으로 처리한다. 두 겹이다.
+
+사용법
+------
+  # Claude Code 훅 — stdin으로 훅 JSON을 받는다
+  kairos-archive hook
+
+  # 대화록을 직접 지정해 재생 (지난 세션 밀어 넣기)
+  kairos-archive replay --transcript ~/.claude/projects/<slug>/<uuid>.jsonl
+
+  # 보낼 것을 보여만 준다 (아무것도 전송하지 않는다)
+  kairos-archive replay --transcript ... --dry-run
+
+설정 (환경 변수)
+---------------
+  KAIROS_URL         기본 http://127.0.0.1:8080/mcp
+  KAIROS_TOKEN       A8 토큰. 없으면 KAIROS_TOKEN_FILE, 그것도 없으면
+  KAIROS_TOKEN_FILE  기본 ~/.config/kairos/token
+  KAIROS_ARCHIVE_STATE  상태 디렉토리. 기본 $XDG_STATE_HOME/kairos/archive
+
+Claude Code 설정 예 (~/.claude/settings.json)
+--------------------------------------------
+  {"hooks": {"Stop": [{"hooks": [
+      {"type": "command", "command": "~/bin/kairos-archive hook"}]}]}}
+
+11-B-2에 따라 **전 세션 자동 아카이브는 기본값이 아니다**. 훅을 등록하지 않고
+`replay`로 원하는 세션만 밀어 넣는 것이 시작 형태다.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+DEFAULT_URL = "http://127.0.0.1:8080/mcp"
+DEFAULT_TOKEN_FILE = "~/.config/kairos/token"
+
+# 분당 상한 60(`[gateway].mcp_write_rate_per_min`)보다 낮게 잡는다 — 같은 창을 쓰는
+# 다른 클라이언트가 있을 수 있고, 상한에 딱 붙이면 그쪽이 굶는다.
+DEFAULT_RATE_PER_MIN = 45
+
+# 세션 하나에서 한 번에 보낼 턴 수의 상한. 재생이 통째로 몇십 분을 잡아먹지 않도록.
+# 넘친 것은 다음 실행이 이어서 보낸다(상태 파일이 이어가는 자리를 안다).
+DEFAULT_MAX_TURNS = 500
+
+RATE_LIMIT_HINT = "분당"
+
+
+# --- 대화록 → 턴 --------------------------------------------------------------------
+
+def _texts(content) -> str:
+    """메시지 content에서 **사람이 읽는 텍스트만** 꺼낸다.
+
+    `thinking`은 답변이 아니라 내부 추론이고, `tool_use`·`tool_result`는 도구 입출력이라
+    둘 다 대화의 지식이 아니다. 문자열 content는 그대로가 본문이다.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n\n".join(b.get("text", "") for b in content
+                           if isinstance(b, dict) and b.get("type") == "text")
+    return ""
+
+
+def turns_claude_code(path: Path) -> list[dict]:
+    """Claude Code 대화록(JSONL) → 턴 목록. 실측 2026-09-04.
+
+    한 턴 = 사람이 친 프롬프트 하나 + 다음 프롬프트 전까지의 어시스턴트 텍스트 전부.
+    **부수 대화(`isSidechain`)는 제외한다** — 서브에이전트의 대화라 사람이 나눈 것이
+    아니고, 본 대화의 답변에 이미 요약되어 들어 있다.
+    """
+    turns: list[dict] = []
+    current: dict | None = None
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue                       # 쓰는 중에 잘린 마지막 줄 — 다음 실행이 본다
+        if not isinstance(rec, dict) or rec.get("isSidechain"):
+            continue
+        kind = rec.get("type")
+        message = rec.get("message") or {}
+        if kind == "user":
+            # 허용 목록: `origin.kind == "human"`인 것만이 사람이 실제로 친 프롬프트다.
+            # 슬래시 명령 출력·bash 입출력·도구 결과는 전부 이 표시가 없다.
+            if (rec.get("origin") or {}).get("kind") != "human" or rec.get("isMeta"):
+                continue
+            question = _texts(message.get("content")).strip()
+            if not question:
+                continue
+            current = {"question": question, "captured_at": rec.get("timestamp") or "",
+                       "answer": []}
+            turns.append(current)
+        elif kind == "assistant" and current is not None:
+            answer = _texts(message.get("content")).strip()
+            if answer:
+                current["answer"].append(answer)
+    out = []
+    for turn in turns:
+        if not turn["answer"]:
+            continue                       # 답변이 없는 프롬프트(중단·취소)는 지식이 아니다
+        out.append({"question": turn["question"], "captured_at": turn["captured_at"],
+                    "content": "\n\n".join(turn["answer"])})
+    return out
+
+
+def session_id_claude_code(hook: dict, path: Path) -> str:
+    """`claude:<세션 uuid>` — 클라이언트 이름을 앞에 붙여 세션 충돌을 막는다.
+
+    무해화는 서버의 `paths.safe_session_id`가 하므로 여기서는 붙이기만 한다.
+    """
+    return "claude:" + str(hook.get("session_id") or path.stem)
+
+
+ADAPTERS = {"claude-code": (turns_claude_code, session_id_claude_code)}
+
+
+# --- 상태 (증분 전송) ---------------------------------------------------------------
+
+def state_path(session_id: str) -> Path:
+    base = os.environ.get("KAIROS_ARCHIVE_STATE") or os.path.join(
+        os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
+        "kairos", "archive")
+    safe = re.sub(r"[^\w.\-]", "_", session_id)[:120]
+    return Path(base).expanduser() / f"{safe}.json"
+
+
+def load_state(session_id: str) -> int:
+    """마지막으로 보낸 턴 번호. 재전송은 삼중 대조로 무해하지만 분당 창을 낭비한다."""
+    try:
+        return int(json.loads(state_path(session_id).read_text(encoding="utf-8"))["last_turn"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return 0
+
+
+def save_state(session_id: str, last_turn: int) -> None:
+    path = state_path(session_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"last_turn": last_turn}), encoding="utf-8")
+    tmp.replace(path)                      # 원자적 — 중간에 죽어도 상태가 깨지지 않는다
+
+
+# --- MCP 클라이언트 -----------------------------------------------------------------
+
+class Client:
+    """Streamable HTTP stateless — `initialize` 왕복이 필요 없다(서버가 stateless)."""
+
+    def __init__(self, url: str, token: str, rate_per_min: int) -> None:
+        self.url = url
+        self.token = token
+        self.interval = 60.0 / max(1, rate_per_min)
+        self._next_at = 0.0
+        self._id = 0
+
+    def call(self, name: str, arguments: dict) -> dict:
+        for attempt in range(6):
+            self._pace()
+            try:
+                result = self._post(name, arguments)
+            except urllib.error.HTTPError as e:
+                if e.code in (429, 503) and attempt < 5:
+                    self._backoff(attempt)
+                    continue
+                body = e.read().decode("utf-8", "replace")[:200]
+                raise SystemExit(f"HTTP {e.code} — {body}") from e
+            if not result.get("isError"):
+                return result
+            text = _error_text(result)
+            if RATE_LIMIT_HINT in text and attempt < 5:
+                self._backoff(attempt)      # 쓰기 한도 — 기다렸다 다시 (계획서 §3.5-2)
+                continue
+            raise SystemExit(f"{name} 실패: {text}")
+        raise SystemExit(f"{name}: 쓰기 한도가 풀리지 않는다 — 나중에 다시 실행한다")
+
+    def _post(self, name: str, arguments: dict) -> dict:
+        self._id += 1
+        body = json.dumps({"jsonrpc": "2.0", "id": self._id, "method": "tools/call",
+                           "params": {"name": name, "arguments": arguments}}).encode()
+        req = urllib.request.Request(self.url, data=body, method="POST", headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "Authorization": f"Bearer {self.token}"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        if "error" in payload:
+            raise SystemExit(f"{name}: {payload['error'].get('message', payload['error'])}")
+        return payload.get("result") or {}
+
+    def _pace(self) -> None:
+        wait = self._next_at - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        self._next_at = time.monotonic() + self.interval
+
+    def _backoff(self, attempt: int) -> None:
+        time.sleep(min(60.0, 5.0 * (2 ** attempt)))
+
+
+def _error_text(result: dict) -> str:
+    return " ".join(c.get("text", "") for c in result.get("content", [])
+                    if isinstance(c, dict))
+
+
+def read_token() -> str:
+    token = os.environ.get("KAIROS_TOKEN")
+    if token:
+        return token.strip()
+    path = Path(os.environ.get("KAIROS_TOKEN_FILE") or DEFAULT_TOKEN_FILE).expanduser()
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        raise SystemExit(
+            f"A8 토큰이 없다 — KAIROS_TOKEN 환경 변수나 {path}를 둔다") from None
+
+
+# --- 집행 -------------------------------------------------------------------------
+
+def archive(transcript: Path, session_id: str, client_name: str, *,
+            dry_run: bool, finalize: bool, max_turns: int,
+            url: str, rate: int) -> int:
+    to_turns, _ = ADAPTERS[client_name]
+    turns = to_turns(transcript)
+    sent_through = load_state(session_id)
+    pending = [(i + 1, t) for i, t in enumerate(turns) if i + 1 > sent_through]
+
+    if not pending:
+        _log(f"{session_id}: 보낼 턴 없음 (턴 {len(turns)}, 이미 {sent_through}까지 보냄)")
+        if finalize and not dry_run and sent_through:
+            _client(url, rate).call("finalize_session", {"session_id": session_id})
+        return 0
+
+    capped = pending[:max_turns]
+    if len(capped) < len(pending):          # 잘랐으면 말한다 — 조용한 절단은 거짓말이다
+        _log(f"{session_id}: 대기 {len(pending)}턴 중 {len(capped)}턴만 보낸다 "
+             f"(--max-turns). 나머지는 다음 실행이 이어서 보낸다")
+
+    if dry_run:
+        for turn_no, turn in capped:
+            _log(f"  [{turn_no}] {turn['captured_at']} q={turn['question'][:60]!r} "
+                 f"a={len(turn['content']):,}자")
+        _log(f"{session_id}: {len(capped)}턴 (전송하지 않음)")
+        return len(capped)
+
+    client = _client(url, rate)
+    sent = 0
+    for turn_no, turn in capped:
+        client.call("archive_turn", {
+            "session_id": session_id, "turn_no": turn_no,
+            "content": turn["content"], "question": turn["question"],
+            "captured_at": turn["captured_at"]})
+        # **턴마다 즉시 기록한다.** 마지막에 한 번 쓰면 중간에 죽었을 때 전부 다시 보낸다.
+        save_state(session_id, turn_no)
+        sent += 1
+    if finalize:
+        client.call("finalize_session", {"session_id": session_id})
+    _log(f"{session_id}: {sent}턴 전송{' + 마감' if finalize else ''}")
+    return sent
+
+
+def _client(url: str, rate: int) -> Client:
+    return Client(url, read_token(), rate)
+
+
+def _log(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="kairos-archive", description=__doc__.split("\n")[0])
+    parser.add_argument("mode", choices=["hook", "replay"])
+    parser.add_argument("--client", default="claude-code", choices=sorted(ADAPTERS))
+    parser.add_argument("--transcript", type=Path, help="replay 모드에서 필수")
+    parser.add_argument("--session-id", help="지정하지 않으면 대화록에서 유도한다")
+    parser.add_argument("--url", default=os.environ.get("KAIROS_URL", DEFAULT_URL))
+    parser.add_argument("--rate", type=int, default=DEFAULT_RATE_PER_MIN,
+                        help=f"분당 쓰기 호출 (기본 {DEFAULT_RATE_PER_MIN})")
+    parser.add_argument("--max-turns", type=int, default=DEFAULT_MAX_TURNS)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--no-finalize", action="store_true",
+                        help="마감하지 않는다 — 유휴 타임아웃이 통합을 맡는다")
+    args = parser.parse_args(argv)
+
+    hook: dict = {}
+    if args.mode == "hook":
+        try:
+            hook = json.loads(sys.stdin.read() or "{}")
+        except ValueError:
+            _log("훅 입력이 JSON이 아니다 — 아무것도 하지 않는다")
+            return 0                        # 훅은 에이전트를 막지 않는다
+        transcript = Path(str(hook.get("transcript_path") or ""))
+    else:
+        if not args.transcript:
+            parser.error("replay 모드에는 --transcript가 필요하다")
+        transcript = args.transcript
+
+    if not transcript.is_file():
+        _log(f"대화록을 찾지 못했다: {transcript}")
+        return 0 if args.mode == "hook" else 1
+
+    _, to_session = ADAPTERS[args.client]
+    session_id = args.session_id or to_session(hook, transcript)
+    archive(transcript, session_id, args.client, dry_run=args.dry_run,
+            finalize=not args.no_finalize, max_turns=args.max_turns,
+            url=args.url, rate=args.rate)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -121,15 +121,55 @@ kairos --root ~/kairos-data token show
 
 ---
 
+## 8. 대화 아카이브 훅 (선택)
+
+에이전트 CLI의 대화를 저장고로 넣는 클라이언트 쪽 도구다. `deploy/hooks/kairos-archive` 한 파일이며 **표준 라이브러리만 쓴다** — KAIROS 체크아웃이 없는 다른 기계에 이 파일만 복사해도 돈다.
+
+```bash
+install -m 755 deploy/hooks/kairos-archive ~/bin/kairos-archive
+export KAIROS_URL=http://<서버>:8080/mcp        # 원격이면 필수
+export KAIROS_TOKEN_FILE=~/.config/kairos/token  # 또는 KAIROS_TOKEN
+```
+
+**먼저 무엇이 갈지 본다.** 아무것도 전송하지 않는다.
+
+```bash
+kairos-archive replay --transcript ~/.claude/projects/<슬러그>/<uuid>.jsonl --dry-run
+```
+
+괜찮으면 전송한다. 두 번째 실행은 이미 보낸 턴을 다시 보내지 않는다(상태 파일이 이어가는 자리를 안다).
+
+```bash
+kairos-archive replay --transcript <대화록> --max-turns 50
+```
+
+**보내는 것과 보내지 않는 것.** 사람이 실제로 친 프롬프트와 어시스턴트의 답변 텍스트만 간다. 도구 호출·도구 결과·사고 블록·슬래시 명령 출력·터미널 입출력·부수 대화(서브에이전트)는 **전부 보내지 않는다**. 허용 목록이라 새 레코드 종류가 생겨도 저절로 새지 않는다. 근거는 실측이다: 대화록의 터미널 입출력 자리에 GitHub 토큰과 평문 비밀번호가 그대로 있었다(2026-09-04). 답변 본문에 남은 자격 증명은 서버의 시크릿 스캔이 받아 `sensitive` 표시와 로컬 백엔드 강제로 처리한다.
+
+**자동 실행은 기본이 아니다**(11-B-2 — 명시 요청만). 잡담 세션까지 전부 노트가 되면 §2.1이 막으려던 검색 노이즈가 세션 단위로 돌아온다. 그래도 자동으로 걸겠다면 `~/.claude/settings.json`에 둔다.
+
+```json
+{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "~/bin/kairos-archive hook"}]}]}}
+```
+
+훅은 에이전트를 막지 않는다 — 대화록을 못 찾거나 입력이 깨져도 조용히 0을 돌려준다. 전송 속도는 분당 45회로 게이트웨이 상한(60) 아래에 잡혀 있고, 한도에 걸리면 기다렸다 다시 시도한다.
+
+---
+
 ## 운용
 
 ### 재기동
 
 ```bash
-systemctl --user restart kairos-gateway
+systemctl --user restart kairos-gateway kairos-worker
 ```
 
 **코드를 고쳤으면 반드시 재기동한다.** 돌고 있는 프로세스는 옛 코드를 계속 서빙하고, 증상은 원인과 동떨어진 형태(새 엔드포인트가 404 등)로만 보인다.
+
+**스키마를 고쳤으면 둘을 함께 재기동한다.** 게이트웨이와 워커는 별개 프로세스라 한쪽만 올리면 **버전이 어긋난 채로 계속 돈다**. 실측(2026-09-04, `origin.part` 추가): 게이트웨이만 올렸더니 턴 인입은 전부 성공하는데 워커가 새 IR을 읽지 못해 `정의되지 않은 키: part` 경고를 30초마다 남기며 세션 통합만 조용히 건너뛰었다. 큐도 로그도 "정상"으로 보이므로 눈치채기 어렵다.
+
+```bash
+journalctl --user -u kairos-worker -n 30 --no-pager   # 어긋남은 여기서만 보인다
+```
 
 ### 백업
 
