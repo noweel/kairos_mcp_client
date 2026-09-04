@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "kairos": {
+      "type": "http",
+      "url": "${KAIROS_URL:-http://127.0.0.1:8080/mcp}",
+      "headers": {
+        "Authorization": "Bearer ${KAIROS_TOKEN:-}"
+      }
+    }
+  }
+}

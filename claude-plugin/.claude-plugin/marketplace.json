@@ -1,0 +1,11 @@
+{
+  "name": "kairos",
+  "owner": { "name": "noweel" },
+  "plugins": [
+    {
+      "name": "kairos",
+      "source": "./kairos",
+      "description": "KAIROS 지식저장고 연결 — MCP 툴, 대화 보관 훅, 사용 정책"
+    }
+  ]
+}

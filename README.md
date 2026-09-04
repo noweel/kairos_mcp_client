@@ -121,37 +121,43 @@ kairos --root ~/kairos-data token show
 
 ---
 
-## 8. 대화 아카이브 훅 (선택)
+## 8. Claude Code 연결 — 플러그인
 
-에이전트 CLI의 대화를 저장고로 넣는 클라이언트 쪽 도구다. `deploy/hooks/kairos-archive` 한 파일이며 **표준 라이브러리만 쓴다** — KAIROS 체크아웃이 없는 다른 기계에 이 파일만 복사해도 돈다.
-
-```bash
-install -m 755 deploy/hooks/kairos-archive ~/bin/kairos-archive
-export KAIROS_URL=http://<서버>:8080/mcp        # 원격이면 필수
-export KAIROS_TOKEN_FILE=~/.config/kairos/token  # 또는 KAIROS_TOKEN
-```
-
-**먼저 무엇이 갈지 본다.** 아무것도 전송하지 않는다.
+Claude Code와의 연결은 **플러그인 하나**로 끝난다(`deploy/claude-plugin/`, decisions.md §102). 설치하면 MCP 서버 등록·대화 보관 훅·사용 정책 스킬·`/kairos:status`·`/kairos:archive`가 한 번에 붙는다. 손으로 `claude mcp add`를 치거나 `settings.json`을 편집할 일이 없다.
 
 ```bash
-kairos-archive replay --transcript ~/.claude/projects/<슬러그>/<uuid>.jsonl --dry-run
+claude plugin marketplace add ./deploy/claude-plugin     # 이 리포를 마켓플레이스로
+claude plugin install kairos@kairos                       # 사용자 스코프 — 모든 프로젝트
 ```
 
-괜찮으면 전송한다. 두 번째 실행은 이미 보낸 턴을 다시 보내지 않는다(상태 파일이 이어가는 자리를 안다).
+다른 기계에서는 `deploy/claude-plugin/` 디렉토리만 복사해 같은 두 줄을 친다. 플러그인 안의 스크립트는 표준 라이브러리만 쓰므로 KAIROS 체크아웃이 필요 없다.
+
+**토큰.** 같은 호스트면 아무것도 설정하지 않아도 된다 — 게이트웨이의 루프백 면제(A8)로 붙는다. LAN이면 셸 프로필에 둘을 둔다. 플러그인의 `.mcp.json`은 `${KAIROS_TOKEN}`을 **참조만** 하므로 값이 설정 파일에 남지 않는다.
 
 ```bash
-kairos-archive replay --transcript <대화록> --max-turns 50
+export KAIROS_URL=http://<서버>:8080/mcp
+export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온 값
 ```
+
+**권한.** 플러그인이 붙인 MCP 툴의 권한 식별자는 `mcp__plugin_kairos_kairos__<툴>`이다(실측 2026-09-04 — 플러그인 경유라 서버 이름 앞에 `plugin_kairos_`가 붙는다). Claude Code는 `readOnlyHint`로 자동 승인하지 않으므로 조회 6종을 묻지 않게 하려면 `~/.claude/settings.json`의 `permissions.allow`에 이름을 적는다. 쓰기 3종(`archive_turn`·`finalize_session`·`add_knowledge`)은 넣지 않는다 — 매번 확인받는 편이 맞다.
+
+```json
+{ "permissions": { "allow": [
+  "mcp__plugin_kairos_kairos__search_knowledge", "mcp__plugin_kairos_kairos__get_note",
+  "mcp__plugin_kairos_kairos__get_source",       "mcp__plugin_kairos_kairos__get_related",
+  "mcp__plugin_kairos_kairos__list_by_filter",   "mcp__plugin_kairos_kairos__export_graph"
+] } }
+```
+
+**확인.** Claude Code 안에서 `/kairos:status`. 게이트웨이·토큰 출처·툴 수·자동 보관 여부·이 프로젝트의 대화록과 보낸 턴 수를 한 화면에 보인다. 실패 줄은 다음 조치를 문장으로 말한다.
+
+**보관.** 기본은 **명시 보관**이다(11-B-2). 대화를 넣고 싶을 때 `/kairos:archive`를 치면 이 프로젝트의 지금 대화록에서 아직 보내지 않은 턴만 보내고 세션을 마감한다. 두 번 쳐도 같은 턴을 다시 보내지 않는다. 턴마다 자동으로 보내려면 `export KAIROS_AUTO_ARCHIVE=1` — 훅은 이미 등록돼 있고 이 변수가 그것을 켠다. 잡담 세션까지 전부 노트가 되면 §2.1이 막으려던 검색 노이즈가 세션 단위로 돌아오므로, 실사용에서 노이즈 비율을 본 뒤 정한다.
 
 **보내는 것과 보내지 않는 것.** 사람이 실제로 친 프롬프트와 어시스턴트의 답변 텍스트만 간다. 도구 호출·도구 결과·사고 블록·슬래시 명령 출력·터미널 입출력·부수 대화(서브에이전트)는 **전부 보내지 않는다**. 허용 목록이라 새 레코드 종류가 생겨도 저절로 새지 않는다. 근거는 실측이다: 대화록의 터미널 입출력 자리에 GitHub 토큰과 평문 비밀번호가 그대로 있었다(2026-09-04). 답변 본문에 남은 자격 증명은 서버의 시크릿 스캔이 받아 `sensitive` 표시와 로컬 백엔드 강제로 처리한다.
 
-**자동 실행은 기본이 아니다**(11-B-2 — 명시 요청만). 잡담 세션까지 전부 노트가 되면 §2.1이 막으려던 검색 노이즈가 세션 단위로 돌아온다. 그래도 자동으로 걸겠다면 `~/.claude/settings.json`에 둔다.
+**사용 정책.** 플러그인의 스킬(`skills/kairos/SKILL.md`)이 "언제 저장고를 먼저 보는가"를 Claude에게 준다 — 툴이 등록돼도 이것이 없으면 거의 부르지 않는다. 같은 정책의 요약이 MCP 서버의 `instructions`에도 있어 스킬을 못 읽는 클라이언트(Codex·Antigravity)도 받는다.
 
-```json
-{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "~/bin/kairos-archive hook"}]}]}}
-```
-
-훅은 에이전트를 막지 않는다 — 대화록을 못 찾거나 입력이 깨져도 조용히 0을 돌려준다. 전송 속도는 분당 45회로 게이트웨이 상한(60) 아래에 잡혀 있고, 한도에 걸리면 기다렸다 다시 시도한다.
+**Codex·Antigravity.** 플러그인 체계가 없으므로 `deploy/claude-plugin/kairos/scripts/kairos-client`를 복사해 `replay --transcript <대화록>`으로 명시 보관한다. MCP 등록은 각 클라이언트의 설정에 `url`(Codex) / `serverUrl`(Antigravity)로 한다. 대화록 어댑터는 Claude Code 것만 있다 — 두 클라이언트의 형식은 실측 뒤 붙인다.
 
 ---
 
