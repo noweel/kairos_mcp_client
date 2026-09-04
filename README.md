@@ -132,6 +132,8 @@ claude plugin install kairos@kairos                       # 사용자 스코프 
 
 다른 기계에서는 `deploy/claude-plugin/` 디렉토리만 복사해 같은 두 줄을 친다. 플러그인 안의 스크립트는 표준 라이브러리만 쓰므로 KAIROS 체크아웃이 필요 없다.
 
+**갱신.** 설치본은 리포의 **복사본**이다(`~/.claude/plugins/cache/kairos/kairos/<버전>/`). `deploy/claude-plugin/`을 고쳐도 설치본은 그대로이므로, 바꾼 뒤에는 `plugin.json`의 `version`을 올리고 `claude plugin update kairos@kairos`를 친다. 게이트웨이·워커를 함께 재기동해야 하는 것과 같은 성격의 어긋남이다 — 고친 코드가 어디서 돌고 있는지가 다르다. 손보기 전 `claude plugin validate ./deploy/claude-plugin/kairos`로 규격을 확인한다.
+
 **토큰.** 같은 호스트면 아무것도 설정하지 않아도 된다 — 게이트웨이의 루프백 면제(A8)로 붙는다. LAN이면 셸 프로필에 둘을 둔다. 플러그인의 `.mcp.json`은 `${KAIROS_TOKEN}`을 **참조만** 하므로 값이 설정 파일에 남지 않는다.
 
 ```bash
