@@ -134,6 +134,8 @@ claude plugin install kairos@kairos                       # 사용자 스코프 
 
 **갱신.** 설치본은 리포의 **복사본**이다(`~/.claude/plugins/cache/kairos/kairos/<버전>/`). `deploy/claude-plugin/`을 고쳐도 설치본은 그대로이므로, 바꾼 뒤에는 `plugin.json`의 `version`을 올리고 `claude plugin update kairos@kairos`를 친다. 게이트웨이·워커를 함께 재기동해야 하는 것과 같은 성격의 어긋남이다 — 고친 코드가 어디서 돌고 있는지가 다르다. 손보기 전 `claude plugin validate ./deploy/claude-plugin/kairos`로 규격을 확인한다.
 
+**경로 표식.** 플러그인의 `.mcp.json`과 훅 스크립트는 요청마다 `X-KAIROS-Client: claude-code` 헤더를 보낸다(0.2.0, decisions.md §106). 게이트웨이가 이 값을 노트의 `source.client`로 적어 뷰어가 **인입 경로별로** 그래프를 가른다. 인증이 아니라 분류다 — 토큰과 무관하고, 없으면 그 노트는 「미상」이다. Codex·Gemini도 각자의 MCP 설정에서 같은 헤더를 보내면 갈라진다.
+
 **토큰.** 같은 호스트면 아무것도 설정하지 않아도 된다 — 게이트웨이의 루프백 면제(A8)로 붙는다. LAN이면 셸 프로필에 둘을 둔다. 플러그인의 `.mcp.json`은 `${KAIROS_TOKEN}`을 **참조만** 하므로 값이 설정 파일에 남지 않는다.
 
 ```bash

@@ -52,6 +52,8 @@ DEFAULT_RATE_PER_MIN = 45
 # 세션 하나에서 한 번에 보낼 턴 수의 상한. 재생이 통째로 몇십 분을 잡아먹지 않도록.
 # 넘친 것은 다음 실행이 이어서 보낸다(상태 파일이 이어가는 자리를 안다).
 DEFAULT_MAX_TURNS = 500
+# 인입 경로 표식(A2 `client`). 훅·재생이 보내는 턴은 전부 Claude Code에서 온 것이다
+CLIENT_NAME = "claude-code"
 
 RATE_LIMIT_HINT = "분당"
 
@@ -216,6 +218,9 @@ class Client:
         req = urllib.request.Request(self.url, data=body, method="POST", headers={
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
+            # 어느 클라이언트에서 왔는가 — 서버가 이 헤더로 노트에 경로를 적는다.
+            # 인증이 아니라 분류다(플러그인 `.mcp.json`도 같은 헤더를 싣는다)
+            "X-KAIROS-Client": CLIENT_NAME,
             **({"Authorization": f"Bearer {self.token}"} if self.token else {})})
         with urllib.request.urlopen(req, timeout=20) as resp:
             return json.loads(resp.read().decode("utf-8"))
