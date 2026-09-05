@@ -2,7 +2,7 @@
 
 빈 Ubuntu 기계에 KAIROS를 세우는 절차다. **주 서버는 Ubuntu이고**(기획서 §7.0 배포 환경), Windows에서는 브라우저로 게이트웨이에 붙는다.
 
-프로세스는 다섯이고 **서로를 필수로 요구하지 않는다.** 이것이 편의가 아니라 설계다: §7.0이 "모델 서버가 없어도 기동은 성공한다 — 수집은 계속되고 정규화만 대기하다 복구 시 자동 재개한다"를 규정하므로, 유닛에 `Requires=`를 걸면 모델 장애가 인입 장애가 되어 그 규정이 뒤집힌다.
+프로세스는 여섯이고(봇은 선택) **서로를 필수로 요구하지 않는다.** 이것이 편의가 아니라 설계다: §7.0이 "모델 서버가 없어도 기동은 성공한다 — 수집은 계속되고 정규화만 대기하다 복구 시 자동 재개한다"를 규정하므로, 유닛에 `Requires=`를 걸면 모델 장애가 인입 장애가 되어 그 규정이 뒤집힌다.
 
 | 프로세스 | 유닛 | 없으면 |
 |---|---|---|
@@ -10,6 +10,7 @@
 | 게이트웨이 | `kairos-gateway` | MCP·뷰어가 닫힌다 |
 | 텍스트 모델 (vLLM) | `kairos-vllm` | 정규화만 **대기**한다. 인입·추출·판정·저장은 그대로 돈다 |
 | 임베딩 (BGE-M3, CPU) | `kairos-embed` | 층2와 태그 후보가 공백. FTS 검색은 그대로 |
+| Telegram 봇 (선택) | `kairos-tg` | 모바일 인입만 멈춘다. 코어는 무관 |
 | 온디맨드 VLM | `kairos-vllm-vlm` | 이미지가 raw로 보존되고 재처리 큐에 남는다 |
 
 ---
@@ -74,6 +75,7 @@ mkdir -p ~/.config/systemd/user
 cp deploy/systemd/*.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now kairos-vllm kairos-embed kairos-worker kairos-gateway
+systemctl --user enable --now kairos-tg        # Telegram 봇을 쓸 때만 (§9)
 ```
 
 **서빙 옵션은 유닛이 아니라 `kairos.env`에 있다.** 기획서 §7.1이 "모델과 서빙 옵션을 한 쌍으로 기록한다"고 정한 대로, 티어로 정해지는 값(모델 경로·컨텍스트 길이·GPU 점유·KV dtype·`compilation-config`·사고 모드·구조화 출력 백엔드)이 전부 모델 경로와 **같은 파일**에 모여 있다. 모델을 바꾸면 그 묶음을 함께 본다.
@@ -165,12 +167,33 @@ export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온
 
 ---
 
+## 9. Telegram 봇 — 모바일 인푸터 (선택)
+
+기획서 §6.2의 인입 전용 봇이다(decisions.md §111). 검색은 하지 않는다 — 모바일 검색·열람은 LAN 뷰어가 맡는다.
+
+**준비.** BotFather에서 봇을 만들어 토큰을 받고, 자기 Telegram `user_id`(숫자)를 확인한다(`@userinfobot` 같은 봇이 알려 준다). 토큰은 **env 파일**에, user_id는 **config**에 둔다 — 토큰은 시크릿이라 설정 파일에 두지 않는다.
+
+```bash
+# ~/.config/kairos/kairos.env (0600)
+KAIROS_TG_TOKEN=123456789:AA...
+
+# ~/.config/kairos/config.toml
+[telegram]
+allowed_user_id = 123456789      # 본인 하나. 그 밖의 발신자에게는 무응답이다
+```
+
+`systemctl --user enable --now kairos-tg`로 띄운다. 토큰이 없으면 유닛은 기동하지 않고 종료한다(`journalctl --user -u kairos-tg`).
+
+**보내는 법.** 텍스트·링크·사진·파일을 봇에게 보내면 접수 회신이 오고, 정규화가 끝나면 제목·요약·노트 ID·딥링크가 회신된다(기본 15분까지 기다리고, 넘으면 "아직 처리 중"). 캡션의 `#태그`는 태그가 되고 나머지는 인입 메모가 된다. 화면 캡처 사진은 `#capture`를 붙이면 OCR 우선으로 읽는다. 앨범으로 보낸 여러 장은 한 묶음(`batch`)이 된다. Bot API 상한(20 MB)을 넘는 파일은 받을 수 없으니 vault-inbox에 넣는다. 음성·영상은 원본만 보관된다(raw).
+
+**상태.** `kairos status`의 큐 항목과 `kairos trace <queue_id>`가 봇이 보는 것과 같은 사실을 보인다 — 회신이 안 오면 거기서 본다. 오프셋·대기 목록은 `<root>/telegram/`에 있다.
+
 ## 운용
 
 ### 재기동
 
 ```bash
-systemctl --user restart kairos-gateway kairos-worker
+systemctl --user restart kairos-gateway kairos-worker kairos-tg
 ```
 
 **코드를 고쳤으면 반드시 재기동한다.** 돌고 있는 프로세스는 옛 코드를 계속 서빙하고, 증상은 원인과 동떨어진 형태(새 엔드포인트가 404 등)로만 보인다.

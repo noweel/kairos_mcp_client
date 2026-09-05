@@ -1,0 +1,19 @@
+[Unit]
+Description=KAIROS Telegram 봇 (모바일 인푸터 — 인입 전용, 기획서 §6.2)
+Documentation=file:///deploy/README.md
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/kairos/kairos.env
+ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/kairos" --root "$KAIROS_ROOT" tg'
+Restart=always
+RestartSec=10
+# 수신기와 마찬가지로 다른 유닛에 Requires를 걸지 않는다 — 봇은 stage()로 큐에 넣을 뿐이라
+# 수신기·모델 서버가 내려가 있어도 인입은 계속되고(기획서 §3.3), 회신만 늦어진다.
+# 토큰(KAIROS_TG_TOKEN)이 env 파일에 없으면 기동하지 않는다 — 대기할 대상이 없다.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
