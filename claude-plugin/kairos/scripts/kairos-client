@@ -29,6 +29,9 @@ HTTP를 쓰고, KAIROS 체크아웃 없이 이 파일 하나만 있어도 돌도
                         (게이트웨이의 루프백 면제)
   KAIROS_AUTO_ARCHIVE   1이면 턴마다 자동 보관 (기본 꺼짐)
   KAIROS_ARCHIVE_STATE  상태 디렉토리. 기본 $XDG_STATE_HOME/kairos/archive
+
+보내는 것: 요청마다 `X-KAIROS-Client: claude-code` 헤더(인입 경로 표식 — 인증이 아니다,
+decisions.md §106). 값은 고정이고 설정으로 바꾸지 않는다.
 """
 from __future__ import annotations
 
