@@ -163,7 +163,7 @@ export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온
 
 **사용 정책.** 플러그인의 스킬(`skills/kairos/SKILL.md`)이 "언제 저장고를 먼저 보는가"를 Claude에게 준다 — 툴이 등록돼도 이것이 없으면 거의 부르지 않는다. 같은 정책의 요약이 MCP 서버의 `instructions`에도 있어 스킬을 못 읽는 클라이언트(Codex·Antigravity)도 받는다.
 
-**Codex·Antigravity.** 플러그인 체계가 없으므로 `deploy/claude-plugin/kairos/scripts/kairos-client`를 복사해 `replay --transcript <대화록>`으로 명시 보관한다. MCP 등록은 각 클라이언트의 설정에 `url`(Codex) / `serverUrl`(Antigravity)로 한다. 대화록 어댑터는 Claude Code 것만 있다 — 두 클라이언트의 형식은 실측 뒤 붙인다.
+**Codex.** 플러그인 체계가 없으므로 `deploy/codex-plugin/install.py install`이 MCP 등록·훅·스킬 3종·클라이언트를 `~/.codex`에 놓는다(decisions.md §127). 스킬 `$kairos-status`·`$kairos-archive`가 슬래시 명령의 자리다. 자세한 것은 `deploy/codex-plugin/README.md`. **Antigravity**는 아직 어댑터가 없다 — MCP 등록은 설정의 `serverUrl`로 하고, 대화록 보관은 형식을 실측한 뒤 붙인다.
 
 ---
 

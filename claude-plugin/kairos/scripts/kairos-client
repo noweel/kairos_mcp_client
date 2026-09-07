@@ -55,7 +55,8 @@ DEFAULT_RATE_PER_MIN = 45
 # 세션 하나에서 한 번에 보낼 턴 수의 상한. 재생이 통째로 몇십 분을 잡아먹지 않도록.
 # 넘친 것은 다음 실행이 이어서 보낸다(상태 파일이 이어가는 자리를 안다).
 DEFAULT_MAX_TURNS = 500
-# 인입 경로 표식(A2 `client`). 훅·재생이 보내는 턴은 전부 Claude Code에서 온 것이다
+# 인입 경로 표식(A2 `client`). 어느 클라이언트의 대화록인지는 `--client`가 정하고 main()이
+# 여기에 적는다 — 헤더와 세션 접두어가 같은 값을 본다(decisions.md §106·§127)
 CLIENT_NAME = "claude-code"
 
 RATE_LIMIT_HINT = "분당"
@@ -148,7 +149,109 @@ def latest_transcript(project_dir: str, projects_root: str = CLAUDE_PROJECTS) ->
     return files[0] if files else None
 
 
-ADAPTERS = {"claude-code": (turns_claude_code, session_id_claude_code)}
+# --- Codex CLI (decisions.md §127) ------------------------------------------------------
+# 대화록은 `~/.codex/sessions/YYYY/MM/DD/rollout-<시각>-<uuid>.jsonl`이고 한 줄은
+# `{"timestamp", "type", "payload"}`다. 사람이 친 글은 `event_msg`의 `user_message`, 답변은
+# `event_msg`의 `agent_message`(phase가 commentary면 중간 서술이라 뺀다)로 실린다.
+# `response_item`(도구 호출·출력, 개발자 지시, 환경 문맥)·`turn_context`·`compacted`는
+# 대화가 아니므로 허용 목록 밖이다 — Claude Code 어댑터와 같은 원칙이다.
+CODEX_SESSIONS = "~/.codex/sessions"
+
+
+def _codex_line(rec: dict) -> tuple[str, dict]:
+    payload = rec.get("payload")
+    return str(rec.get("type") or ""), (payload if isinstance(payload, dict) else {})
+
+
+def _is_injected(text: str) -> bool:
+    """`<environment_context>`·`<user_instructions>`처럼 Codex가 끼워 넣는 XML 꼴은 사람의 글이 아니다."""
+    head = text.lstrip().split("\n", 1)[0]
+    return head.startswith("<") and ">" in head
+
+
+def turns_codex(path: Path) -> list[dict]:
+    """Codex 롤아웃(JSONL) → 턴 목록. 한 턴 = user_message 하나 + 다음 것 전까지의 agent_message 전부."""
+    turns: list[dict] = []
+    current: dict | None = None
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue                       # 쓰는 중에 잘린 마지막 줄
+        if not isinstance(rec, dict):
+            continue
+        kind, payload = _codex_line(rec)
+        if kind == "event_msg" and payload.get("type") == "user_message":
+            question = str(payload.get("message") or "").strip()
+            if not question or _is_injected(question):
+                continue
+            current = {"question": question, "captured_at": rec.get("timestamp") or "",
+                       "answer": [], "fallback": []}
+            turns.append(current)
+        elif current is None:
+            continue
+        elif kind == "event_msg" and payload.get("type") == "agent_message":
+            if payload.get("phase") == "commentary":
+                continue                   # 중간 서술 — 최종 답변이 따로 온다
+            answer = str(payload.get("message") or "").strip()
+            if answer:
+                current["answer"].append(answer)
+        elif (kind == "response_item" and payload.get("type") == "message"
+              and payload.get("role") == "assistant"):
+            # 이벤트가 기록되지 않는 판(옛 CLI)을 위한 예비 — 이벤트가 있으면 쓰지 않는다
+            text = "\n\n".join(str(c.get("text", "")) for c in payload.get("content") or []
+                                if isinstance(c, dict) and c.get("type") == "output_text").strip()
+            if text:
+                current["fallback"].append(text)
+    out = []
+    for turn in turns:
+        answers = turn["answer"] or turn["fallback"]
+        if not answers:
+            continue                       # 답변이 없는 프롬프트는 지식이 아니다
+        out.append({"question": turn["question"], "captured_at": turn["captured_at"],
+                    "content": "\n\n".join(answers)})
+    return out
+
+
+def _codex_meta(path: Path) -> dict:
+    """첫 줄의 `session_meta` payload — 세션 id와 작업 디렉터리(cwd)가 여기 있다."""
+    try:
+        with path.open(encoding="utf-8", errors="replace") as f:
+            rec = json.loads(f.readline() or "{}")
+    except (OSError, ValueError):
+        return {}
+    kind, payload = _codex_line(rec) if isinstance(rec, dict) else ("", {})
+    return payload if kind == "session_meta" else {}
+
+
+def session_id_codex(hook: dict, path: Path) -> str:
+    """`codex:<세션 id>` — 훅이 주면 그것, 아니면 롤아웃 첫 줄, 그것도 없으면 파일 이름."""
+    sid = hook.get("session_id") or _codex_meta(path).get("id") or path.stem
+    return "codex:" + str(sid)
+
+
+def latest_transcript_codex(project_dir: str, sessions_root: str = CODEX_SESSIONS) -> Path | None:
+    """이 프로젝트의 가장 최근 롤아웃 — Codex는 프로젝트별 디렉터리가 없어 `session_meta.cwd`로 고른다.
+
+    최근에 쓰인 파일부터 첫 줄만 읽으므로 세션이 많아도 비용은 파일 수에 비례한다.
+    압축된 옛 롤아웃(`.jsonl.zst`)은 보지 않는다 — 지금 진행 중인 세션은 늘 평문이다.
+    """
+    root = Path(sessions_root).expanduser()
+    if not root.is_dir():
+        return None
+    target = str(Path(project_dir).expanduser().resolve())
+    files = sorted(root.glob("**/rollout-*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for path in files:
+        if str(_codex_meta(path).get("cwd") or "") == target:
+            return path
+    return None
+
+
+# 이름 → (대화록 → 턴, 세션 id, 프로젝트 → 최근 대화록). 셋이 한 벌이어야 `--client` 하나로 갈린다.
+ADAPTERS = {
+    "claude-code": (turns_claude_code, session_id_claude_code, latest_transcript),
+    "codex": (turns_codex, session_id_codex, latest_transcript_codex),
+}
 
 
 # --- 상태 (증분 전송) ---------------------------------------------------------------
@@ -270,7 +373,7 @@ def gateway_url() -> str:
 def archive(transcript: Path, session_id: str, client_name: str, *,
             dry_run: bool, finalize: bool, max_turns: int,
             url: str, rate: int) -> int:
-    to_turns, _ = ADAPTERS[client_name]
+    to_turns, _, _ = ADAPTERS[client_name]
     turns = to_turns(transcript)
     sent_through = load_state(session_id)
     pending = [(i + 1, t) for i, t in enumerate(turns) if i + 1 > sent_through]
@@ -322,7 +425,7 @@ def auto_archive_enabled() -> bool:
     return os.environ.get("KAIROS_AUTO_ARCHIVE", "").strip().lower() in ("1", "true", "yes", "on")
 
 
-def status_report(url: str, project_dir: str | None) -> list[str]:
+def status_report(url: str, project_dir: str | None, client_name: str = "claude-code") -> list[str]:
     """`/kairos:status`가 보이는 것 — **붙었는가, 무엇으로, 무엇이 켜져 있는가**.
 
     실패는 사유를 문장으로 말한다. "연결 안 됨" 한 줄은 다음에 무엇을 할지 말해 주지 않는다.
@@ -342,11 +445,12 @@ def status_report(url: str, project_dir: str | None) -> list[str]:
                      "서버에서 `systemctl --user status kairos-gateway`")
     lines.append(f"자동 보관   {'켜짐 (KAIROS_AUTO_ARCHIVE)' if auto_archive_enabled() else '꺼짐 — 명시 보관은 /kairos:archive'}")
     if project_dir:
-        t = latest_transcript(project_dir)
+        _, to_session, find = ADAPTERS[client_name]
+        t = find(project_dir)
         if t is None:
             lines.append("이 프로젝트  대화록 없음")
         else:
-            sid = "claude:" + t.stem
+            sid = to_session({}, t)
             lines.append(f"이 프로젝트  대화록 {t.name} · 보낸 턴 {load_state(sid)}")
     return lines
 
@@ -364,7 +468,7 @@ def main(argv: list[str] | None = None) -> int:
                                      description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="mode", required=True)
 
-    hook = sub.add_parser("hook", help="Claude Code 훅 — stdin으로 훅 JSON을 받는다")
+    hook = sub.add_parser("hook", help="에이전트 CLI 훅(Claude Code·Codex) — stdin으로 훅 JSON을 받는다")
     hook.add_argument("event", choices=["stop", "end"],
                       help="stop: 새 턴 전송(자동 보관이 켜졌을 때만) · end: 마감")
 
@@ -385,11 +489,14 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--rate", type=int, default=DEFAULT_RATE_PER_MIN)
     args = parser.parse_args(argv)
 
+    global CLIENT_NAME
+    CLIENT_NAME = args.client                # 헤더(X-KAIROS-Client)와 세션 접두어가 같은 값을 본다
+
     if args.mode == "status":
-        print("\n".join(status_report(args.url, args.project)))
+        print("\n".join(status_report(args.url, args.project, args.client)))
         return 0
 
-    _, to_session = ADAPTERS[args.client]
+    _, to_session, find = ADAPTERS[args.client]
 
     if args.mode == "hook":
         try:
@@ -411,7 +518,7 @@ def main(argv: list[str] | None = None) -> int:
 
     transcript = args.transcript
     if transcript is None and args.project:
-        transcript = latest_transcript(args.project)
+        transcript = find(args.project)
         if transcript is None:
             _log(f"이 프로젝트의 대화록이 없다: {args.project}")
             return 1

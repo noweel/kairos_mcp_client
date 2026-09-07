@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      { "hooks": [ { "type": "command",
+                     "command": "python3 \"{KAIROS_CLIENT}\" --client codex hook stop",
+                     "timeout": 120 } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command",
+                     "command": "python3 \"{KAIROS_CLIENT}\" --client codex hook end",
+                     "timeout": 30 } ] }
+    ]
+  }
+}
