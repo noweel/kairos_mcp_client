@@ -20,14 +20,14 @@ Claude Code를 KAIROS 지식저장고에 붙이는 플러그인입니다. 설치
 이 리포를 마켓플레이스로 등록하고 플러그인을 사용자 스코프로 설치합니다.
 
 ```bash
-claude plugin marketplace add ./deploy/claude-plugin     # 리포 체크아웃이 있는 기계
+claude plugin marketplace add ./claude-plugin     # 리포 체크아웃이 있는 기계
 claude plugin install kairos@kairos
 ```
 
-리포가 없는 기계에서는 이 디렉터리(`deploy/claude-plugin/`)를 통째로 복사한 뒤 그 경로로 같은 두 줄을 칩니다. 설치 전에 규격을 확인하려면 다음을 칩니다.
+리포가 없는 기계에서는 이 디렉터리(`claude-plugin/`)를 통째로 복사한 뒤 그 경로로 같은 두 줄을 칩니다. 설치 전에 규격을 확인하려면 다음을 칩니다.
 
 ```bash
-claude plugin validate ./deploy/claude-plugin/kairos
+claude plugin validate ./claude-plugin/kairos
 ```
 
 설치가 끝나면 Claude Code를 다시 시작합니다. 플러그인은 세션이 시작될 때 읽힙니다.
@@ -97,7 +97,7 @@ kairos-client replay --project <프로젝트 경로>          # /kairos:archive�
 설치본은 이 디렉터리의 **복사본**입니다(`~/.claude/plugins/cache/kairos/kairos/<버전>/`). 여기를 고쳐도 설치본은 그대로이므로, 바꾼 뒤에는 `kairos/.claude-plugin/plugin.json`의 `version`을 올리고 갱신합니다. 갱신 뒤에는 Claude Code를 다시 시작해야 적용됩니다.
 
 ```bash
-claude plugin validate ./deploy/claude-plugin/kairos
+claude plugin validate ./claude-plugin/kairos
 claude plugin update kairos@kairos
 ```
 
@@ -118,4 +118,4 @@ claude plugin marketplace remove kairos
 | 보관했는데 노트가 안 생긴다 | 서버 쪽 정규화가 대기 중일 수 있습니다(모델 서버 부재). `kairos status`와 `kairos trace <queue_id>`가 사실을 보입니다 |
 | 노트가 「미상」 경로로 잡힌다 | 플러그인 0.2.0 이전에 시작한 세션입니다. 서버에서 `kairos migrate-client --apply`가 근거 있는 것만 채웁니다 |
 
-Codex CLI는 `deploy/codex-plugin/`의 설치기가 같은 스크립트를 `--client codex`로 놓습니다. Antigravity는 아직 어댑터가 없습니다. 서버 쪽 설치와 운용 전체는 `deploy/README.md`에 있습니다.
+Codex CLI는 `codex-plugin/`의 설치기가 같은 스크립트를 `--client codex`로 놓습니다. Antigravity는 아직 어댑터가 없습니다. 서버 쪽 설치와 운용 전체는 `deploy/README.md`에 있습니다.

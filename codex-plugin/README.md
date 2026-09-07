@@ -20,17 +20,17 @@ OpenAI Codex CLI를 KAIROS 지식저장고에 붙이는 묶음입니다. Codex�
 리포 체크아웃이 있는 기계에서는 다음 한 줄입니다. 같은 기계에서 게이트웨이가 돌면 인자가 필요 없습니다.
 
 ```bash
-python3 deploy/codex-plugin/install.py install
+python3 codex-plugin/install.py install
 ```
 
 게이트웨이가 다른 기계(LAN)에 있으면 주소를 줍니다. 이때 `config.toml`에는 토큰 값이 아니라 **변수 이름**(`bearer_token_env_var = "KAIROS_TOKEN"`)만 적히므로, 셸 프로필에 토큰을 두어야 합니다.
 
 ```bash
-python3 deploy/codex-plugin/install.py install --url http://<서버>:8080/mcp
+python3 codex-plugin/install.py install --url http://<서버>:8080/mcp
 export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 `kairos token show`로 확인해 옮겨 온 값
 ```
 
-리포가 없는 기계에서는 이 디렉터리를 복사해 가되, `scripts/kairos-client`가 심볼릭 링크이므로 **링크를 푼 채** 복사합니다(`cp -rL deploy/codex-plugin <대상>`). 무엇을 할지만 보려면 `--dry-run`을 붙이고, `~/.codex`가 아닌 곳을 쓰면 `--codex-home`을 줍니다.
+리포가 없는 기계에서는 이 디렉터리를 복사해 가되, `scripts/kairos-client`가 심볼릭 링크이므로 **링크를 푼 채** 복사합니다(`cp -rL codex-plugin <대상>`). 무엇을 할지만 보려면 `--dry-run`을 붙이고, `~/.codex`가 아닌 곳을 쓰면 `--codex-home`을 줍니다.
 
 설치기는 멱등입니다. 두 번 돌려도 같은 상태가 되고, `config.toml`과 `hooks.json`에서 자기 항목만 갈아 끼우며 다른 서버·훅은 바이트 그대로 둡니다. 설치가 끝나면 Codex를 다시 시작합니다.
 
@@ -57,8 +57,8 @@ python3 ~/.codex/kairos/kairos-client --client codex status --project "$PWD"
 스크립트나 스킬을 고쳤으면 설치기를 다시 돌립니다. 자기 항목만 새 값으로 바뀝니다. 제거는 `uninstall`이며, 다른 서버·훅·스킬은 남깁니다.
 
 ```bash
-python3 deploy/codex-plugin/install.py install
-python3 deploy/codex-plugin/install.py uninstall
+python3 codex-plugin/install.py install
+python3 codex-plugin/install.py uninstall
 ```
 
 ## 문제가 생기면
@@ -71,4 +71,4 @@ python3 deploy/codex-plugin/install.py uninstall
 | 훅이 돌지 않는다 | `config.toml`의 `[features] hooks`가 `false`가 아닌가 |
 | 보관했는데 노트가 안 생긴다 | 서버 쪽 정규화가 대기 중일 수 있습니다. `kairos status`와 `kairos trace <queue_id>`가 사실을 보입니다 |
 
-서버 쪽 설치와 운용 전체는 `deploy/README.md`에, Claude Code 쪽은 `deploy/claude-plugin/README.md`에 있습니다.
+서버 쪽 설치와 운용 전체는 `deploy/README.md`에, Claude Code 쪽은 `claude-plugin/README.md`에 있습니다.

@@ -44,7 +44,7 @@ def is_loopback(url: str) -> bool:
 
 
 def config_block(url: str) -> str:
-    lines = ["[mcp_servers.kairos]              # KAIROS 지식저장고 — deploy/codex-plugin/install.py가 관리한다",
+    lines = ["[mcp_servers.kairos]              # KAIROS 지식저장고 — codex-plugin/install.py가 관리한다",
              f'url = "{url}"']
     if not is_loopback(url):
         lines.append('bearer_token_env_var = "KAIROS_TOKEN"   # 값이 아니라 변수 이름 — 셸 프로필에 둔다')

@@ -1,5 +1,7 @@
 # KAIROS 설치·운용
 
+> 이 저장소(`noweel/kairos_mcp_client`)는 KAIROS의 **클라이언트·배포 묶음**이다: Claude Code 플러그인, Codex CLI 설치기, systemd 유닛, 그리고 이 문서. 코어(`noweel/kairos`)의 작업 트리에서는 `deploy/`로 체크아웃한다(`decisions.md` §128).
+
 빈 Ubuntu 기계에 KAIROS를 세우는 절차다. **주 서버는 Ubuntu이고**(기획서 §7.0 배포 환경), Windows에서는 브라우저로 게이트웨이에 붙는다.
 
 프로세스는 여섯이고(봇은 선택) **서로를 필수로 요구하지 않는다.** 이것이 편의가 아니라 설계다: §7.0이 "모델 서버가 없어도 기동은 성공한다 — 수집은 계속되고 정규화만 대기하다 복구 시 자동 재개한다"를 규정하므로, 유닛에 `Requires=`를 걸면 모델 장애가 인입 장애가 되어 그 규정이 뒤집힌다.
@@ -42,7 +44,7 @@ vault 레이아웃과 `queue.db`·`index.db`를 만들고, **저장고를 git �
 
 ```bash
 mkdir -p ~/.config/kairos
-cp deploy/systemd/kairos.env.example ~/.config/kairos/kairos.env
+cp systemd/kairos.env.example ~/.config/kairos/kairos.env
 $EDITOR ~/.config/kairos/kairos.env          # 경로 넷을 자기 환경으로
 ```
 
@@ -72,7 +74,7 @@ cd viewer && npm ci && npm run build
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp deploy/systemd/*.service ~/.config/systemd/user/
+cp systemd/*.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now kairos-vllm kairos-embed kairos-worker kairos-gateway
 systemctl --user enable --now kairos-tg        # Telegram 봇을 쓸 때만 (§9)
@@ -125,16 +127,16 @@ kairos --root ~/kairos-data token show
 
 ## 8. Claude Code 연결 — 플러그인
 
-Claude Code와의 연결은 **플러그인 하나**로 끝난다(`deploy/claude-plugin/`, decisions.md §102). 플러그인 자체의 설치·설정·사용법은 `deploy/claude-plugin/README.md`에 따로 있다 — 리포 없이 디렉터리만 복사해 간 기계에서도 읽을 수 있게 그쪽에 두었다. 설치하면 MCP 서버 등록·대화 보관 훅·사용 정책 스킬·`/kairos:status`·`/kairos:archive`가 한 번에 붙는다. 손으로 `claude mcp add`를 치거나 `settings.json`을 편집할 일이 없다.
+Claude Code와의 연결은 **플러그인 하나**로 끝난다(`claude-plugin/`, decisions.md §102). 플러그인 자체의 설치·설정·사용법은 `claude-plugin/README.md`에 따로 있다 — 리포 없이 디렉터리만 복사해 간 기계에서도 읽을 수 있게 그쪽에 두었다. 설치하면 MCP 서버 등록·대화 보관 훅·사용 정책 스킬·`/kairos:status`·`/kairos:archive`가 한 번에 붙는다. 손으로 `claude mcp add`를 치거나 `settings.json`을 편집할 일이 없다.
 
 ```bash
-claude plugin marketplace add ./deploy/claude-plugin     # 이 리포를 마켓플레이스로
+claude plugin marketplace add ./claude-plugin     # 이 리포를 마켓플레이스로
 claude plugin install kairos@kairos                       # 사용자 스코프 — 모든 프로젝트
 ```
 
-다른 기계에서는 `deploy/claude-plugin/` 디렉토리만 복사해 같은 두 줄을 친다. 플러그인 안의 스크립트는 표준 라이브러리만 쓰므로 KAIROS 체크아웃이 필요 없다.
+다른 기계에서는 `claude-plugin/` 디렉토리만 복사해 같은 두 줄을 친다. 플러그인 안의 스크립트는 표준 라이브러리만 쓰므로 KAIROS 체크아웃이 필요 없다.
 
-**갱신.** 설치본은 리포의 **복사본**이다(`~/.claude/plugins/cache/kairos/kairos/<버전>/`). `deploy/claude-plugin/`을 고쳐도 설치본은 그대로이므로, 바꾼 뒤에는 `plugin.json`의 `version`을 올리고 `claude plugin update kairos@kairos`를 친다. 게이트웨이·워커를 함께 재기동해야 하는 것과 같은 성격의 어긋남이다 — 고친 코드가 어디서 돌고 있는지가 다르다. 손보기 전 `claude plugin validate ./deploy/claude-plugin/kairos`로 규격을 확인한다.
+**갱신.** 설치본은 리포의 **복사본**이다(`~/.claude/plugins/cache/kairos/kairos/<버전>/`). `claude-plugin/`을 고쳐도 설치본은 그대로이므로, 바꾼 뒤에는 `plugin.json`의 `version`을 올리고 `claude plugin update kairos@kairos`를 친다. 게이트웨이·워커를 함께 재기동해야 하는 것과 같은 성격의 어긋남이다 — 고친 코드가 어디서 돌고 있는지가 다르다. 손보기 전 `claude plugin validate ./claude-plugin/kairos`로 규격을 확인한다.
 
 **경로 표식.** 플러그인의 `.mcp.json`과 훅 스크립트는 요청마다 `X-KAIROS-Client: claude-code` 헤더를 보낸다(0.2.0, decisions.md §106). 게이트웨이가 이 값을 노트의 `source.client`로 적어 뷰어가 **인입 경로별로** 그래프를 가른다. 인증이 아니라 분류다 — 토큰과 무관하고, 없으면 그 노트는 「미상」이다. Codex·Gemini도 각자의 MCP 설정에서 같은 헤더를 보내면 갈라진다.
 
@@ -163,7 +165,7 @@ export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온
 
 **사용 정책.** 플러그인의 스킬(`skills/kairos/SKILL.md`)이 "언제 저장고를 먼저 보는가"를 Claude에게 준다 — 툴이 등록돼도 이것이 없으면 거의 부르지 않는다. 같은 정책의 요약이 MCP 서버의 `instructions`에도 있어 스킬을 못 읽는 클라이언트(Codex·Antigravity)도 받는다.
 
-**Codex.** 플러그인 체계가 없으므로 `deploy/codex-plugin/install.py install`이 MCP 등록·훅·스킬 3종·클라이언트를 `~/.codex`에 놓는다(decisions.md §127). 스킬 `$kairos-status`·`$kairos-archive`가 슬래시 명령의 자리다. 자세한 것은 `deploy/codex-plugin/README.md`. **Antigravity**는 아직 어댑터가 없다 — MCP 등록은 설정의 `serverUrl`로 하고, 대화록 보관은 형식을 실측한 뒤 붙인다.
+**Codex.** 플러그인 체계가 없으므로 `codex-plugin/install.py install`이 MCP 등록·훅·스킬 3종·클라이언트를 `~/.codex`에 놓는다(decisions.md §127). 스킬 `$kairos-status`·`$kairos-archive`가 슬래시 명령의 자리다. 자세한 것은 `codex-plugin/README.md`. **Antigravity**는 아직 어댑터가 없다 — MCP 등록은 설정의 `serverUrl`로 하고, 대화록 보관은 형식을 실측한 뒤 붙인다.
 
 ---
 

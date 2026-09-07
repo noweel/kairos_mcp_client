@@ -3,8 +3,14 @@
   "displayName": "KAIROS 지식저장고",
   "version": "0.2.1",
   "description": "개인 지식저장고 KAIROS를 붙인다 — MCP 툴 9종, 대화 보관 훅, 사용 정책 스킬, /kairos:status·/kairos:archive",
-  "author": { "name": "noweel" },
-  "repository": "https://github.com/noweel/kairos",
+  "author": {
+    "name": "noweel"
+  },
+  "repository": "https://github.com/noweel/kairos_mcp_client",
   "license": "MIT",
-  "keywords": ["knowledge-base", "mcp", "archive"]
+  "keywords": [
+    "knowledge-base",
+    "mcp",
+    "archive"
+  ]
 }
