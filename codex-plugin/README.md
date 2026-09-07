@@ -71,4 +71,4 @@ python3 codex-plugin/install.py uninstall
 | 훅이 돌지 않는다 | `config.toml`의 `[features] hooks`가 `false`가 아닌가 |
 | 보관했는데 노트가 안 생긴다 | 서버 쪽 정규화가 대기 중일 수 있습니다. `kairos status`와 `kairos trace <queue_id>`가 사실을 보입니다 |
 
-서버 쪽 설치와 운용 전체는 `deploy/README.md`에, Claude Code 쪽은 `claude-plugin/README.md`에 있습니다.
+서버 쪽 설치와 운용 전체는 이 저장소 루트의 `README.md`에, Claude Code 쪽은 `claude-plugin/README.md`에 있습니다.
