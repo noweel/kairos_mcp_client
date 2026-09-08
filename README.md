@@ -23,7 +23,7 @@ claude plugin install kairos@kairos                       # 사용자 스코프 
 
 체크아웃이 있는 기계에서는 그 경로를 준다: `claude plugin marketplace add /path/to/kairos_mcp_client`(코어 작업 트리에서는 `./deploy`). 플러그인 안의 스크립트는 표준 라이브러리만 쓰므로 KAIROS 체크아웃이 필요 없다.
 
-**갱신.** 설치본은 리포의 **복사본**이다(`~/.claude/plugins/cache/kairos/kairos/<버전>/`). 리포를 고쳐도 설치본은 그대로이므로, 바꾼 뒤에는 `plugin.json`의 `version`을 올리고 푸시한 다음 `claude plugin marketplace update kairos && claude plugin update kairos@kairos`를 친다(경로로 등록했으면 마켓플레이스 갱신은 필요 없다). 게이트웨이·워커를 함께 재기동해야 하는 것과 같은 성격의 어긋남이다 — 고친 코드가 어디서 돌고 있는지가 다르다. 손보기 전 `claude plugin validate ./claude-plugin/kairos`로 규격을 확인한다.
+**갱신.** 설치본은 리포의 **복사본**이다(`~/.claude/plugins/cache/kairos/kairos/<버전>/`, Windows는 `%USERPROFILE%\.claude\plugins\cache\…`). 리포를 고쳐도 설치본은 그대로이므로, 바꾼 뒤에는 `plugin.json`의 `version`을 올리고 푸시한 다음 `claude plugin marketplace update kairos && claude plugin update kairos@kairos`를 친다(경로로 등록했으면 마켓플레이스 갱신은 필요 없다). 게이트웨이·워커를 함께 재기동해야 하는 것과 같은 성격의 어긋남이다 — 고친 코드가 어디서 돌고 있는지가 다르다. 손보기 전 `claude plugin validate ./claude-plugin/kairos`로 규격을 확인한다.
 
 **경로 표식.** 플러그인의 `.mcp.json`과 훅 스크립트는 요청마다 `X-KAIROS-Client: claude-code` 헤더를 보낸다(0.2.0, decisions.md §106). 게이트웨이가 이 값을 노트의 `source.client`로 적어 뷰어가 **인입 경로별로** 그래프를 가른다. 인증이 아니라 분류다 — 토큰과 무관하고, 없으면 그 노트는 「미상」이다. Codex·Gemini도 각자의 MCP 설정에서 같은 헤더를 보내면 갈라진다.
 

@@ -133,8 +133,10 @@ def session_id_claude_code(hook: dict, path: Path) -> str:
 
 
 def project_slug(project_dir: str) -> str:
-    """프로젝트 경로 → 대화록 디렉토리 이름. Claude Code의 규칙을 그대로 따른다."""
-    return re.sub(r"[/\\]", "-", str(Path(project_dir).expanduser().resolve()))
+    """프로젝트 경로 → 대화록 디렉토리 이름. Claude Code의 규칙을 그대로 따른다:
+    **영숫자가 아닌 글자는 전부 `-`**다. 슬래시만 바꾸면 Windows의 드라이브 콜론(`D:\\…` →
+    `D--…`)과 경로 속 점(`.config` → `-config`)이 어긋나 대화록을 못 찾는다(실측 2026-09-08, Windows)."""
+    return re.sub(r"[^A-Za-z0-9]", "-", str(Path(project_dir).expanduser().resolve()))
 
 
 def latest_transcript(project_dir: str, projects_root: str = CLAUDE_PROJECTS) -> Path | None:
@@ -464,6 +466,13 @@ def _log(message: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # 출력은 UTF-8이다 — Windows 콘솔의 cp949는 상태 문구의 `—`·`·`를 못 적어 UnicodeEncodeError로 죽는다
+    # (실측 2026-09-08). Claude Code는 명령 출력을 UTF-8로 읽는다
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     parser = argparse.ArgumentParser(prog="kairos-client",
                                      description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="mode", required=True)
