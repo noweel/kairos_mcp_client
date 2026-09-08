@@ -4,8 +4,8 @@
 
 | 클라이언트 | 붙이는 방법 | 자세히 |
 |---|---|---|
-| Claude Code | 플러그인 설치 두 줄 | 아래 §1, `claude-plugin/README.md` |
-| Codex CLI | `codex-plugin/install.py install` | 아래 §2, `codex-plugin/README.md` |
+| Claude Code | `claude plugin marketplace add noweel/kairos_mcp_client` + `claude plugin install kairos@kairos` | 아래 §1, `claude-plugin/README.md` |
+| Codex CLI | 클론 뒤 `codex-plugin/install.py install` | 아래 §2, `codex-plugin/README.md` |
 | Antigravity 등 | MCP 등록만(설정의 `serverUrl`), 대화록 어댑터는 아직 없다 | 아래 §2 |
 
 ---
@@ -14,14 +14,16 @@
 
 Claude Code와의 연결은 **플러그인 하나**로 끝난다(`claude-plugin/`, decisions.md §102). 플러그인 자체의 설치·설정·사용법은 `claude-plugin/README.md`에 따로 있다 — 리포 없이 디렉터리만 복사해 간 기계에서도 읽을 수 있게 그쪽에 두었다. 설치하면 MCP 서버 등록·대화 보관 훅·사용 정책 스킬·`/kairos:status`·`/kairos:archive`가 한 번에 붙는다. 손으로 `claude mcp add`를 치거나 `settings.json`을 편집할 일이 없다.
 
+**이 리포 자체가 마켓플레이스다**(루트의 `.claude-plugin/marketplace.json`). GitHub 경로로 바로 등록한다 — 클론이 필요 없다.
+
 ```bash
-claude plugin marketplace add ./claude-plugin     # 이 리포를 마켓플레이스로
+claude plugin marketplace add noweel/kairos_mcp_client   # GitHub에서 마켓플레이스로 (비공개 리포면 git 인증이 있어야 한다)
 claude plugin install kairos@kairos                       # 사용자 스코프 — 모든 프로젝트
 ```
 
-다른 기계에서는 `claude-plugin/` 디렉토리만 복사해 같은 두 줄을 친다. 플러그인 안의 스크립트는 표준 라이브러리만 쓰므로 KAIROS 체크아웃이 필요 없다.
+체크아웃이 있는 기계에서는 그 경로를 준다: `claude plugin marketplace add /path/to/kairos_mcp_client`(코어 작업 트리에서는 `./deploy`). 플러그인 안의 스크립트는 표준 라이브러리만 쓰므로 KAIROS 체크아웃이 필요 없다.
 
-**갱신.** 설치본은 리포의 **복사본**이다(`~/.claude/plugins/cache/kairos/kairos/<버전>/`). `claude-plugin/`을 고쳐도 설치본은 그대로이므로, 바꾼 뒤에는 `plugin.json`의 `version`을 올리고 `claude plugin update kairos@kairos`를 친다. 게이트웨이·워커를 함께 재기동해야 하는 것과 같은 성격의 어긋남이다 — 고친 코드가 어디서 돌고 있는지가 다르다. 손보기 전 `claude plugin validate ./claude-plugin/kairos`로 규격을 확인한다.
+**갱신.** 설치본은 리포의 **복사본**이다(`~/.claude/plugins/cache/kairos/kairos/<버전>/`). 리포를 고쳐도 설치본은 그대로이므로, 바꾼 뒤에는 `plugin.json`의 `version`을 올리고 푸시한 다음 `claude plugin marketplace update kairos && claude plugin update kairos@kairos`를 친다(경로로 등록했으면 마켓플레이스 갱신은 필요 없다). 게이트웨이·워커를 함께 재기동해야 하는 것과 같은 성격의 어긋남이다 — 고친 코드가 어디서 돌고 있는지가 다르다. 손보기 전 `claude plugin validate ./claude-plugin/kairos`로 규격을 확인한다.
 
 **경로 표식.** 플러그인의 `.mcp.json`과 훅 스크립트는 요청마다 `X-KAIROS-Client: claude-code` 헤더를 보낸다(0.2.0, decisions.md §106). 게이트웨이가 이 값을 노트의 `source.client`로 적어 뷰어가 **인입 경로별로** 그래프를 가른다. 인증이 아니라 분류다 — 토큰과 무관하고, 없으면 그 노트는 「미상」이다. Codex·Gemini도 각자의 MCP 설정에서 같은 헤더를 보내면 갈라진다.
 
@@ -54,4 +56,10 @@ export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온
 
 ## 2. Codex CLI와 그 밖의 클라이언트
 
-**Codex.** 플러그인 체계가 없으므로 `codex-plugin/install.py install`이 MCP 등록·훅·스킬 3종·클라이언트를 `~/.codex`에 놓는다(decisions.md §127). 스킬 `$kairos-status`·`$kairos-archive`가 슬래시 명령의 자리다. 자세한 것은 `codex-plugin/README.md`. **Antigravity**는 아직 어댑터가 없다 — MCP 등록은 설정의 `serverUrl`로 하고, 대화록 보관은 형식을 실측한 뒤 붙인다.
+**Codex.** 플러그인 체계가 없으므로 리포를 클론한 뒤 `codex-plugin/install.py install`이 MCP 등록·훅·스킬 3종·클라이언트를 `~/.codex`에 놓는다(decisions.md §127).
+
+```bash
+git clone https://github.com/noweel/kairos_mcp_client.git
+python3 kairos_mcp_client/codex-plugin/install.py install
+```
+ 스킬 `$kairos-status`·`$kairos-archive`가 슬래시 명령의 자리다. 자세한 것은 `codex-plugin/README.md`. **Antigravity**는 아직 어댑터가 없다 — MCP 등록은 설정의 `serverUrl`로 하고, 대화록 보관은 형식을 실측한 뒤 붙인다.

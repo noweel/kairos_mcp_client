@@ -17,14 +17,21 @@ Claude Code를 KAIROS 지식저장고에 붙이는 플러그인입니다. 설치
 
 ## 설치
 
-이 리포를 마켓플레이스로 등록하고 플러그인을 사용자 스코프로 설치합니다.
+리포(`noweel/kairos_mcp_client`) 자체가 마켓플레이스입니다(루트의 `.claude-plugin/marketplace.json`). GitHub 경로로 등록하고 플러그인을 사용자 스코프로 설치합니다 — 클론이 필요 없습니다.
 
 ```bash
-claude plugin marketplace add ./claude-plugin     # 리포 체크아웃이 있는 기계
+claude plugin marketplace add noweel/kairos_mcp_client   # 비공개 리포면 git 인증(SSH 키나 자격 증명 도우미)이 있어야 합니다
 claude plugin install kairos@kairos
 ```
 
-리포가 없는 기계에서는 이 디렉터리(`claude-plugin/`)를 통째로 복사한 뒤 그 경로로 같은 두 줄을 칩니다. 설치 전에 규격을 확인하려면 다음을 칩니다.
+체크아웃이 있는 기계에서는 그 경로로 등록합니다.
+
+```bash
+claude plugin marketplace add /path/to/kairos_mcp_client   # 코어 작업 트리에서는 ./deploy
+claude plugin install kairos@kairos
+```
+
+리포가 없고 인증도 없는 기계에서는 리포 전체를 복사해 가되, 마켓플레이스 매니페스트가 루트에 있으므로 `claude-plugin/`만 떼어 가면 등록되지 않습니다. 설치 전에 규격을 확인하려면 체크아웃에서 다음을 칩니다.
 
 ```bash
 claude plugin validate ./claude-plugin/kairos
@@ -105,7 +112,7 @@ claude plugin update kairos@kairos
 
 ```bash
 claude plugin uninstall kairos@kairos
-claude plugin marketplace remove kairos
+claude plugin marketplace remove kairos              # GitHub 경로로 등록했든 로컬 경로로 등록했든 이름은 kairos다
 ```
 
 ## 문제가 생기면

@@ -17,20 +17,21 @@ OpenAI Codex CLI를 KAIROS 지식저장고에 붙이는 묶음입니다. Codex�
 
 ## 설치
 
-리포 체크아웃이 있는 기계에서는 다음 한 줄입니다. 같은 기계에서 게이트웨이가 돌면 인자가 필요 없습니다.
+리포를 클론한 뒤 설치기 한 줄입니다. 같은 기계에서 게이트웨이가 돌면 인자가 필요 없습니다.
 
 ```bash
-python3 codex-plugin/install.py install
+git clone https://github.com/noweel/kairos_mcp_client.git      # 이미 체크아웃이 있으면(코어의 deploy/) 그 경로를 씁니다
+python3 kairos_mcp_client/codex-plugin/install.py install
 ```
 
 게이트웨이가 다른 기계(LAN)에 있으면 주소를 줍니다. 이때 `config.toml`에는 토큰 값이 아니라 **변수 이름**(`bearer_token_env_var = "KAIROS_TOKEN"`)만 적히므로, 셸 프로필에 토큰을 두어야 합니다.
 
 ```bash
-python3 codex-plugin/install.py install --url http://<서버>:8080/mcp
+python3 kairos_mcp_client/codex-plugin/install.py install --url http://<서버>:8080/mcp
 export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 `kairos token show`로 확인해 옮겨 온 값
 ```
 
-리포가 없는 기계에서는 이 디렉터리를 복사해 가되, `scripts/kairos-client`가 심볼릭 링크이므로 **링크를 푼 채** 복사합니다(`cp -rL codex-plugin <대상>`). 무엇을 할지만 보려면 `--dry-run`을 붙이고, `~/.codex`가 아닌 곳을 쓰면 `--codex-home`을 줍니다.
+클론하지 않고 이 디렉터리만 옮기려면 `scripts/kairos-client`가 심볼릭 링크(`../../claude-plugin/kairos/scripts/kairos-client`)이므로 **링크를 푼 채** 복사합니다(`cp -rL codex-plugin <대상>`). 무엇을 할지만 보려면 `--dry-run`을 붙이고, `~/.codex`가 아닌 곳을 쓰면 `--codex-home`을 줍니다.
 
 설치기는 멱등입니다. 두 번 돌려도 같은 상태가 되고, `config.toml`과 `hooks.json`에서 자기 항목만 갈아 끼우며 다른 서버·훅은 바이트 그대로 둡니다. 설치가 끝나면 Codex를 다시 시작합니다.
 
