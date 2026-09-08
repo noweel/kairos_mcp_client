@@ -1,7 +1,7 @@
 {
   "name": "kairos",
   "displayName": "KAIROS 지식저장고",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "개인 지식저장고 KAIROS를 붙인다 — MCP 툴 9종, 대화 보관 훅, 사용 정책 스킬, /kairos:status·/kairos:archive",
   "author": {
     "name": "noweel"
