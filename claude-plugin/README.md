@@ -8,7 +8,7 @@ Claude Code를 KAIROS 지식저장고에 붙이는 플러그인입니다. 설치
 | 훅 2종 | `kairos/hooks/hooks.json` | `Stop`(턴 전송)·`SessionEnd`(세션 마감). **등록만 되고 켜져 있지는 않습니다**(아래 「자동 보관」) |
 | 사용 정책 스킬 | `kairos/skills/kairos/SKILL.md` | "언제 저장고를 먼저 보는가"를 Claude에게 줍니다. 툴이 있어도 이것이 없으면 거의 부르지 않습니다 |
 | 슬래시 명령 | `kairos/commands/status.md`·`archive.md` | `/kairos:status`(연결 상태), `/kairos:archive`(이 대화를 명시 보관) |
-| 클라이언트 스크립트 | `kairos/scripts/kairos-client` | 훅과 명령이 부르는 본체. 표준 라이브러리만 쓰므로 KAIROS 체크아웃 없이 이 디렉터리만 있으면 동작합니다 |
+| 클라이언트 스크립트 | `kairos/scripts/kairos-client.py` | 훅과 명령이 부르는 본체. 표준 라이브러리만 쓰므로 KAIROS 체크아웃 없이 이 디렉터리만 있으면 동작합니다. 같은 자리의 `kairos-client`는 실행 가능한 파이썬(`python3` · `python` · `py -3` 순)을 골라 본체로 넘기는 sh 진입점입니다. Windows의 python.org 설치본에는 `python3.exe`가 없어 `python3`이 스토어 스텁으로 풀리기 때문입니다 |
 
 ## 요구 사항
 

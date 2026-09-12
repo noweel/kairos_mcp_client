@@ -7,7 +7,7 @@ OpenAI Codex CLI를 KAIROS 지식저장고에 붙이는 묶음입니다. Codex�
 | MCP 서버 등록 | `~/.codex/config.toml`의 `[mcp_servers.kairos]` | 게이트웨이의 `/mcp`에 툴 9종을 연결합니다. `X-KAIROS-Client: codex` 헤더를 실어 노트에 인입 경로가 기록됩니다 |
 | 훅 2종 | `~/.codex/hooks.json`의 `Stop`·`SessionEnd` | 턴 전송과 세션 마감. **등록만 되고 켜져 있지는 않습니다**(아래 「자동 보관」) |
 | 스킬 3종 | `~/.codex/skills/{kairos,kairos-status,kairos-archive}/SKILL.md` | 사용 정책(`kairos`), 연결 상태(`$kairos-status`), 명시 보관(`$kairos-archive`). Codex는 슬래시 명령이 아니라 스킬로 부릅니다 |
-| 클라이언트 스크립트 | `~/.codex/kairos/kairos-client` | 훅과 스킬이 부르는 본체. Claude Code 플러그인의 스크립트와 **같은 파일**이며(`scripts/kairos-client`는 그쪽을 가리키는 심볼릭 링크), 표준 라이브러리만 씁니다 |
+| 클라이언트 스크립트 | `~/.codex/kairos/kairos-client` | 훅과 스킬이 부르는 본체. Claude Code 플러그인의 `scripts/kairos-client.py`와 **같은 파일**이며(`scripts/kairos-client`는 그쪽을 가리키는 심볼릭 링크), 표준 라이브러리만 씁니다 |
 
 ## 요구 사항
 
@@ -31,7 +31,7 @@ python3 kairos_mcp_client/codex-plugin/install.py install --url http://<서버>:
 export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 `kairos token show`로 확인해 옮겨 온 값
 ```
 
-클론하지 않고 이 디렉터리만 옮기려면 `scripts/kairos-client`가 심볼릭 링크(`../../claude-plugin/kairos/scripts/kairos-client`)이므로 **링크를 푼 채** 복사합니다(`cp -rL codex-plugin <대상>`). 무엇을 할지만 보려면 `--dry-run`을 붙이고, `~/.codex`가 아닌 곳을 쓰면 `--codex-home`을 줍니다.
+클론하지 않고 이 디렉터리만 옮기려면 `scripts/kairos-client`가 심볼릭 링크(`../../claude-plugin/kairos/scripts/kairos-client.py`)이므로 **링크를 푼 채** 복사합니다(`cp -rL codex-plugin <대상>`). 무엇을 할지만 보려면 `--dry-run`을 붙이고, `~/.codex`가 아닌 곳을 쓰면 `--codex-home`을 줍니다.
 
 설치기는 멱등입니다. 두 번 돌려도 같은 상태가 되고, `config.toml`과 `hooks.json`에서 자기 항목만 갈아 끼우며 다른 서버·훅은 바이트 그대로 둡니다. 설치가 끝나면 Codex를 다시 시작합니다.
 
