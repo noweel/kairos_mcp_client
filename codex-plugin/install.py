@@ -141,10 +141,32 @@ def strip_hooks(obj: dict) -> dict:
     return {**obj, "hooks": hooks}
 
 
+def client_source() -> Path:
+    """본체 파일. **심볼릭 링크에 기대지 않는다**(Windows).
+
+    `scripts/kairos-client`는 Claude Code 플러그인의 본체를 가리키는 링크인데, Windows에서
+    git은 `core.symlinks=true`(개발자 모드나 관리자 권한)가 아니면 링크를 **경로가 적힌
+    텍스트 파일**로 체크아웃한다. 그것을 그대로 복사하면 51바이트짜리 「클라이언트」가
+    놓이고 훅이 조용히 죽는다. 그래서 형제 디렉터리의 실물을 먼저 보고, 없을 때만
+    (디렉터리만 떼어 온 경우) 링크 자리를 쓴다.
+    """
+    direct = HERE.parent / "claude-plugin" / "kairos" / "scripts" / "kairos-client.py"
+    if direct.is_file():
+        return direct
+    local = (HERE / "scripts" / "kairos-client").resolve()
+    head = local.read_bytes()[:400] if local.is_file() else b""
+    if b"KAIROS" not in head:
+        raise SystemExit(
+            f"클라이언트 본체를 찾지 못했다: {local}\n"
+            "  심볼릭 링크가 풀리지 않은 채 복사된 것으로 보인다(Windows의 git 기본값).\n"
+            "  리포를 클론해 쓰거나, 디렉터리만 옮길 때는 `cp -rL codex-plugin <대상>`으로 뜬다.")
+    return local
+
+
 def install(home: Path, url: str, dry_run: bool) -> list[str]:
     done: list[str] = []
     client = home / "kairos" / "kairos-client"
-    src = (HERE / "scripts" / "kairos-client").resolve()   # 심볼릭 링크는 여기서 풀린다
+    src = client_source()
 
     def put(path: Path, content: str | bytes, what: str) -> None:
         done.append(f"{'(dry-run) ' if dry_run else ''}{what}: {path}")

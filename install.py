@@ -96,7 +96,11 @@ def install_plugin(dry_run: bool) -> None:
             out(f"  (dry-run) {shown}")
             continue
         out(f"  {shown}")
-        code = subprocess.call([cli, *s])
+        # **Windows에서는 셸을 거친다.** `claude`는 npm이 놓은 `claude.cmd`인데, 배치 파일은
+        # OS가 시스템 셸로 띄우면서 인자를 셸 규칙으로 다시 쪼갠다. `shell=False`면 파이썬이
+        # 따옴표를 붙여 주지 않으므로 `C:\Users\John Doe\…` 같은 공백 있는 경로가 갈린다.
+        # `shell=True`면 파이썬이 `list2cmdline`으로 감싼다(파이썬 문서의 권고).
+        code = subprocess.call([cli, *s], shell=(os.name == "nt"))
         if code != 0:
             out(f"  ↳ 실패(종료 {code}) — 이미 등록돼 있으면 무해하다. 위 명령을 직접 확인한다.")
 

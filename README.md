@@ -71,6 +71,26 @@ export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온
 
 ---
 
+## 1.1 Windows에서의 제약
+
+설치와 MCP 연결은 Windows에서 그대로 된다. 걸리는 자리는 **셸을 거치는 것들**이다.
+
+| 되는 것 | 안 될 수 있는 것 |
+|---|---|
+| `install.py`, `/kairos:setup`이 적는 설정, MCP 툴 11종(게이트웨이와 직접 HTTP) | 훅 2종(자동 보관·세션 마감)과 슬래시 명령 셋(`/kairos:setup`·`status`·`archive`) |
+
+**Git Bash가 필요하다.** 훅과 슬래시 명령은 셸 형식이라 Claude Code가 셸을 띄우는데, Windows에서는 Git Bash이고 **그것이 없으면 PowerShell로 떨어진다**. 진입점이 `#!/bin/sh` 스크립트라 PowerShell에서는 돌지 않는다. MCP 툴은 셸을 거치지 않으므로 이 경우에도 조회와 인입은 그대로 된다. 관측된 적은 없고(decisions.md §189), 겪으면 Git Bash를 깔거나 그 사실을 알려 주면 exec 형식을 다시 본다.
+
+**파이썬은 이름이 아니라 실행으로 판정한다.** `python3` · `python` · `py -3` 중 하나가 실제로 돌면 된다. python.org 설치본에 `python3.exe`가 없어 그 이름이 스토어 스텁으로 풀리는 경우도 진입점이 걸러 낸다. 셋 다 안 되면 `/kairos:status`의 「파이썬」 줄이 말한다.
+
+**설정과 상태는 POSIX 관례 자리에 놓인다.** 토큰 파일은 `%USERPROFILE%\.config\kairos\token`, 보낸 자리 기억은 `%USERPROFILE%\.local\state\kairos\archive`다. 동작에는 지장이 없고 옮기고 싶으면 `KAIROS_TOKEN_FILE`·`KAIROS_ARCHIVE_STATE`를 준다. 주소를 적는 `~/.claude/settings.json`은 Claude Code 자신의 자리라 `%USERPROFILE%\.claude`로 풀린다.
+
+**Codex는 심볼릭 링크를 탄다.** `codex-plugin/scripts/kairos-client`가 본체를 가리키는 링크인데, Windows의 git은 `core.symlinks=true`(개발자 모드나 관리자 권한)가 아니면 그것을 **경로가 적힌 텍스트 파일**로 체크아웃한다. 클론해 쓰면 설치기가 형제 디렉터리의 실물을 먼저 보므로 문제가 없고, `codex-plugin/`만 떼어 갈 때는 `cp -rL`로 뜬다. 링크가 풀리지 않은 채로 돌리면 설치기가 그 사실을 말하고 멈춘다.
+
+**`install-tg.sh`는 서버 쪽(Linux)이다.** Windows 클라이언트와는 무관하다.
+
+---
+
 ## 2. Codex CLI와 그 밖의 클라이언트
 
 **Codex.** 플러그인 체계가 없으므로 리포를 클론한 뒤 `codex-plugin/install.py install`이 MCP 등록·훅·스킬 3종·클라이언트를 `~/.codex`에 놓는다(decisions.md §127).
