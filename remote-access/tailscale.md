@@ -158,9 +158,21 @@ kairos --root ~/kairos-data token show
 export KAIROS_TOKEN="<서버에서 확인한 토큰>"
 ```
 
-**PC 앱은 로그인 셸의 환경 변수를 읽지 못한다.** 따라서 지금 플러그인 구조에서는 PC 앱의 MCP 툴에 토큰이 실리지 않아 401이 날 수 있다. 훅과 슬래시 명령은 토큰 파일로 동작한다. PC 앱에서 MCP 툴까지 쓰려면 플러그인을 보강해야 하며, 아직 반영되지 않았다.
+**Windows에서는 CLI와 PC 앱 모두 사용자 환경 변수에 토큰을 둔다.** PC 앱은 셸 프로필과 PowerShell 프로필을 읽지 않지만, 사용자 환경 변수는 물려받는다. PowerShell에서 아래 명령을 실행하면 토큰 파일의 값이 화면에 출력되지 않고 옮겨진다. 그다음 PowerShell 창을 새로 열고, PC 앱은 트레이까지 완전히 종료했다가 다시 실행한다. 이 방법으로 `claude mcp list`의 `√ Connected`와 PC 앱의 검색이 동작하는 것을 확인했다(2026-09-15).
 
-설치와 문제 해결의 자세한 절차는 [`../README.md`](../README.md) §1에 있다.
+```powershell
+$t = (Get-Content "$env:USERPROFILE\.config\kairos\token" -Raw).Trim()
+[Environment]::SetEnvironmentVariable("KAIROS_TOKEN", $t, "User")
+Remove-Variable t
+```
+
+토큰 파일이 없다면 `Win + R`에 `rundll32 sysdm.cpl,EditEnvironmentVariables`를 입력하고, 사용자 변수에 `KAIROS_TOKEN`을 새로 만들어 값을 붙여 넣는다. `setx KAIROS_TOKEN <값>`처럼 값을 명령줄에 쓰면 PowerShell 기록 파일에 토큰이 남으므로 쓰지 않는다.
+
+**PC 앱에서는 `/mcp`로 연결을 확인할 수 없다.** 새 **Local** 세션을 열고 저장고 검색을 시켜 확인한다. 플러그인을 설치하거나 업데이트한 뒤에는 `/reload-plugins`로 MCP 서버가 연결되지 않으므로 새 세션을 연다.
+
+**macOS PC 앱은 실측하지 않았다.** 공식 문서에 따르면 Dock이나 Finder에서 실행한 앱은 셸 프로필에서 `PATH`와 정해진 Claude Code 변수만 가져오므로, `export KAIROS_TOKEN`이 앱에 전달되지 않을 수 있다.
+
+설치와 문제 해결의 자세한 절차는 [`../README.md`](../README.md) §1과 [`../claude-plugin/README.md`](../claude-plugin/README.md)에 있다.
 
 ### Codex CLI
 
@@ -282,7 +294,7 @@ serve를 꺼도 7.3의 면제 해제는 그대로 두어도 된다. 토큰을 �
 | 잘 되다가 서버만 목록에서 사라졌다 | 서버의 키가 만료됐다. 서버에서 `sudo tailscale up`으로 다시 로그인하고, 2번의 **Disable Key Expiry**를 확인한다 |
 | 느리다 | `tailscale ping kairos`의 출력에 `via DERP`가 있는지, `tailscale netcheck`의 진단 결과 |
 | 401 (CLI) | 그 셸에 `KAIROS_TOKEN`이 있는지, 서버에서 토큰을 새로 발급한 뒤 옛 값을 쓰고 있지 않은지 |
-| 401 (PC 앱의 MCP 툴만) | 6번에 적은 플러그인 한계다. 보관과 상태 명령은 토큰 파일로 동작한다 |
+| 401 (MCP 툴만, 보관과 상태는 된다) | 토큰이 파일에만 있고 환경 변수 `KAIROS_TOKEN`에는 없다. Windows는 사용자 환경 변수에 넣고 PC 앱을 재실행한다(6번) |
 | serve를 켠 뒤 서버의 MCP 툴이 401을 낸다 | 7.2를 건너뛰었다. 서버 셸의 `KAIROS_TOKEN`을 확인한다 |
 | `/kairos:status`가 http 주소를 보인다 | 주소를 적을 때 `https://`를 빠뜨렸다. `/kairos:setup https://…/mcp`로 다시 적는다 |
 

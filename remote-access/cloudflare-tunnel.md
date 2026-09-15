@@ -245,7 +245,13 @@ sudo cloudflared service uninstall
 
 ## 9. 아직 되지 않는 것과 다음 작업
 
-- **플러그인이 Access 서비스 토큰을 보내게 한다.** Claude Code는 MCP 서버 설정에서 `headersHelper`를 지원한다. 연결할 때마다 명령을 실행하고 그 출력(JSON)을 요청 헤더에 합치는 기능이다. 플러그인의 `.mcp.json`에서도 쓸 수 있다. 이 기능으로 토큰 파일과 서비스 토큰을 읽어 헤더로 보내게 하면 두 가지가 함께 해결된다. 첫째, PC 앱의 MCP 툴에도 토큰이 실린다. 둘째, 3.3 (나)의 Bypass를 없애고 **Service Auth** 정책(`CF-Access-Client-Id`·`CF-Access-Client-Secret` 헤더)으로 바꿀 수 있다. 서비스 토큰은 **Access controls → Service credentials → Service Tokens**에서 만들며, Client Secret은 만들 때 한 번만 보인다. 이 작업은 플러그인 설정이 참조하는 비밀 값의 범위를 넓히는 일이라서, 진행하기 전에 결정이 필요하다.
+- **플러그인이 Access 서비스 토큰을 보내게 한다.** 그러면 3.3 (나)의 Bypass를 없애고 **Service Auth** 정책(`CF-Access-Client-Id`·`CF-Access-Client-Secret` 헤더)으로 바꿀 수 있다. 서비스 토큰은 **Access controls → Service credentials → Service Tokens**에서 만들며, Client Secret은 만들 때 한 번만 보인다.
+
+  **먼저 검토할 방법은 `KAIROS_TOKEN`과 같은 방식이다.** `.mcp.json`의 `headers`가 환경 변수를 참조하고, 그 값을 사용자 환경 변수(Windows)나 셸 프로필(CLI)에 두는 방식이다. `${KAIROS_TOKEN}`이 헤더에서 정상적으로 치환된다는 것은 리눅스 CLI와 Windows CLI·PC 앱에서 확인했다(2026-09-15). 다만 이름에 `SECRET`이 들어간 변수도 헤더에서 똑같이 치환되는지는 따로 재 봐야 한다. 훅과 슬래시 명령(`kairos-client.py`)이 같은 두 헤더를 보내도록 고치는 작업도 함께 필요하다.
+
+  **`headersHelper`는 뒤로 미룬다.** 연결할 때 명령을 실행해 그 출력을 헤더로 합치는 기능인데, 플러그인이 제공하는 헬퍼에는 제약이 많다. 이름에 `TOKEN`·`SECRET`·`KEY`·`AUTH`가 들어간 환경 변수가 헬퍼 실행 환경에서 전부 지워지고, `${user_config.*}`를 참조할 수 없으며, Windows에서 어떤 셸로 실행되는지와 실패했을 때 어떻게 되는지가 문서에 없다.
+
+  어느 방법이든 플러그인 설정이 참조하는 비밀 값의 범위를 넓히는 일이라서, 진행하기 전에 결정이 필요하다.
 - **claude.ai·모바일 Claude 앱 커넥터.** 6번에 적었듯이 인증 방식을 따로 검토해야 한다.
 
 ---

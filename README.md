@@ -46,7 +46,7 @@ claude plugin install kairos@kairos                       # 사용자 스코프 
 /kairos:setup http://<서버>:8080/mcp        # Claude Code 안에서. 인자를 비우면 물어본다
 ```
 
-토큰은 셸 프로필이나 토큰 파일에 둔다. 플러그인의 `.mcp.json`은 `${KAIROS_TOKEN}`을 **참조만** 하므로 값이 설정 파일에 남지 않는다. PC 앱에서는 셸 프로필이 닿지 않으니 토큰 파일(`~/.config/kairos/token`)을 두는 편이 확실하다.
+토큰은 환경 변수 `KAIROS_TOKEN`에 둔다. 플러그인의 `.mcp.json`은 `${KAIROS_TOKEN}`을 **참조만** 하므로 값이 설정 파일에 남지 않는다. **MCP 툴은 이 변수만 읽는다.** 토큰 파일(`~/.config/kairos/token`)은 훅과 슬래시 명령만 읽으므로, 파일만 두면 보관은 되고 검색은 401을 받는다. CLI는 셸 프로필에 두고, **Windows는 CLI와 PC 앱 모두 사용자 환경 변수에 둔다**(PC 앱이 사용자 환경 변수를 물려받는다, 실측 2026-09-15). 값을 출력하지 않고 옮기는 명령은 `claude-plugin/README.md`에 있다.
 
 ```bash
 export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온 값

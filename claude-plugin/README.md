@@ -59,11 +59,25 @@ claude plugin validate ./claude-plugin/kairos
 /kairos:setup http://<서버>:8080/mcp
 ```
 
-**토큰은 셸 프로필에 둡니다.** `.mcp.json`은 이 변수를 **참조만** 하므로 값이 설정 파일에 남지 않습니다. PC 앱에서 LAN 저장고를 쓸 때는 토큰 파일(`~/.config/kairos/token`)을 두는 편이 확실합니다 — 스크립트가 그것을 읽습니다.
+**토큰은 환경 변수 `KAIROS_TOKEN`에 둡니다.** `.mcp.json`은 이 변수를 **참조만** 하므로 값이 설정 파일에 남지 않습니다. 주의할 점은 **MCP 툴이 이 변수만 읽는다**는 것입니다. 토큰 파일(`~/.config/kairos/token`)은 훅과 슬래시 명령만 읽으므로, 토큰 파일만 두면 보관과 상태 확인은 되지만 검색 같은 MCP 툴은 401을 받습니다.
+
+터미널에서 쓰는 CLI는 셸 프로필에 둡니다.
 
 ```bash
 export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 `kairos token show`로 확인해 옮겨 온 값
 ```
+
+**Windows는 CLI와 PC 앱 모두 사용자 환경 변수에 둡니다.** PC 앱은 PowerShell 프로필을 읽지 않지만 사용자 환경 변수는 물려받습니다. 아래 명령은 토큰 파일의 값을 화면에 출력하지 않고 옮깁니다. 넣은 뒤에는 PowerShell 창을 새로 열고, PC 앱은 트레이까지 완전히 종료한 다음 다시 실행합니다. `claude mcp list`에서 `√ Connected`, PC 앱에서 검색이 동작하는 것을 확인했습니다(2026-09-15).
+
+```powershell
+$t = (Get-Content "$env:USERPROFILE\.config\kairos\token" -Raw).Trim()
+[Environment]::SetEnvironmentVariable("KAIROS_TOKEN", $t, "User")
+Remove-Variable t
+```
+
+`setx KAIROS_TOKEN <값>`처럼 값을 명령줄에 직접 쓰면 PowerShell 기록 파일에 토큰이 남으므로 쓰지 않습니다. 토큰을 새로 발급했다면 파일을 갱신한 뒤 위 명령을 다시 실행합니다.
+
+**macOS PC 앱은 실측하지 않았습니다.** 공식 문서에 따르면 Dock이나 Finder에서 실행한 앱은 셸 프로필에서 `PATH`와 정해진 Claude Code 변수만 가져오므로, `export KAIROS_TOKEN`이 앱에 전달되지 않을 수 있습니다.
 
 스크립트가 읽는 변수 전체는 다음과 같습니다.
 
@@ -136,8 +150,8 @@ claude plugin marketplace remove kairos              # GitHub 경로로 등록�
 | 증상 | 확인할 것 |
 |---|---|
 | `/kairos:status`가 "연결 안 됨" | 게이트웨이가 떠 있는가(`systemctl --user status kairos-gateway`), `KAIROS_URL`이 그 주소인가 |
-| LAN에서 401 | `KAIROS_TOKEN`이 셸 프로필에 있고 그 셸에서 Claude Code를 띄웠는가. 토큰은 서버의 `kairos token show`가 정본 |
-| 툴이 목록에 없다 | 설치 뒤 Claude Code를 다시 시작했는가. `claude plugin list`에서 `enabled`인가 |
+| LAN에서 401 | `KAIROS_TOKEN`이 Claude Code 프로세스에 전달됐는가. CLI는 셸 프로필에 두고 그 셸에서 띄웁니다. Windows는 사용자 환경 변수에 두고 PC 앱을 재실행합니다. 토큰 파일만으로는 MCP 툴이 401을 받습니다. 토큰은 서버의 `kairos token show`가 정본 |
+| 툴이 목록에 없다 | 설치 뒤 Claude Code를 다시 시작했는가. `claude plugin list`에서 `enabled`인가. PC 앱에서는 `/mcp`로 MCP 서버를 보지 않으므로 새 Local 세션에서 검색을 시켜 확인합니다. PC 앱의 `/reload-plugins`는 플러그인 MCP 서버를 연결하지 않고 다음 세션부터 반영합니다 |
 | 보관했는데 노트가 안 생긴다 | 서버 쪽 정규화가 대기 중일 수 있습니다(모델 서버 부재). `kairos status`와 `kairos trace <queue_id>`가 사실을 보입니다 |
 | 노트가 「미상」 경로로 잡힌다 | 플러그인 0.2.0 이전에 시작한 세션입니다. 서버에서 `kairos migrate-client --apply`가 근거 있는 것만 채웁니다 |
 | 훅만 돌지 않는다 (MCP 조회는 된다) | `/kairos:status`의 「훅 파이썬」 줄을 봅니다. 훅은 설정에 적힌 파이썬 하나를 부르므로(`pluginConfigs["kairos@kairos"].options.python`), 그 값이 없거나 돌지 않으면 훅만 조용히 실패합니다. **`/kairos:setup`을 한 번 돌리면 이 기계의 파이썬으로 고쳐 적습니다.** 파이썬 자체가 없으면 Windows는 `winget install Python.Python.3.12` |
