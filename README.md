@@ -15,6 +15,8 @@ python3 install.py --url http://<서버>:8080/mcp --allow-reads --yes   # 묻지
 | Codex CLI | 클론 뒤 `codex-plugin/install.py install` | 아래 §2, `codex-plugin/README.md` |
 | Antigravity 등 | MCP 등록만(설정의 `serverUrl`), 대화록 어댑터는 아직 없다 | 아래 §2 |
 
+**밖에서 접속하려면** `remote-access/`의 가이드를 따른다. 지금 쓰는 방법은 [Tailscale](remote-access/tailscale.md)이고, 도메인을 산 뒤에는 [Cloudflare Tunnel](remote-access/cloudflare-tunnel.md)을 더한다. 두 가이드 모두 공유기 포트를 열지 않는다.
+
 ---
 
 ## 1. Claude Code — 플러그인
