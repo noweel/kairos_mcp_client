@@ -32,7 +32,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CLIENT = HERE / "claude-plugin" / "kairos" / "scripts" / "kairos-client.py"
 CODEX_INSTALLER = HERE / "codex-plugin" / "install.py"
-MARKETPLACE = HERE / "claude-plugin"          # 이 리포 자체가 마켓플레이스다
+MARKETPLACE = HERE                            # 이 리포 자체가 마켓플레이스다(.claude-plugin/marketplace.json)
 DEFAULT_URL = "http://127.0.0.1:8080/mcp"
 
 
@@ -76,6 +76,25 @@ def claude_cli() -> str | None:
     return shutil.which("claude")
 
 
+def stale_marketplace() -> str | None:
+    """이미 등록된 `kairos` 마켓플레이스가 **다른 경로**를 가리키면 그 경로를 돌려준다.
+
+    이것이 조용히 모든 설치를 망친다(실측 2026-09-15). 경로가 틀려 있어도 `marketplace add`는
+    "already on disk"라며 그냥 넘어가고, 그 뒤 `plugin install`이 "not found in marketplace"로
+    떨어진다. 캐시를 새로 받으라는 안내(`marketplace update`)를 따라가도 그 경로를 읽다
+    `EISDIR`로 죽으므로, 사람은 무엇이 틀렸는지 알 길이 없다. 지우고 다시 등록해야 한다.
+    """
+    import json
+
+    path = Path(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude").expanduser() / "settings.json"
+    try:
+        obj = json.loads(path.read_text(encoding="utf-8"))
+        found = obj["extraKnownMarketplaces"]["kairos"]["source"]["path"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return None if Path(found) == MARKETPLACE else found
+
+
 def install_plugin(dry_run: bool) -> None:
     """마켓플레이스 등록 + 플러그인 설치. CLI가 없으면 칠 명령을 보인다.
 
@@ -87,7 +106,13 @@ def install_plugin(dry_run: bool) -> None:
     # 이 값이 없으면 플러그인 기본값 `python3`이 쓰이는데, Windows에서는 그 이름이
     # 스토어 스텁으로 풀려 훅만 조용히 죽는다.
     steps = [["plugin", "marketplace", "add", str(MARKETPLACE)],
+             # **캐시는 사본이다.** 리포를 고쳐도 설치본은 그대로이므로 새로 받게 한다.
+             ["plugin", "marketplace", "update", "kairos"],
              ["plugin", "install", "kairos@kairos", "--config", f"python={sys.executable}"]]
+    wrong = stale_marketplace()
+    if wrong:
+        out(f"  등록된 마켓플레이스가 다른 경로를 가리킨다 — 지우고 다시 등록한다: {wrong}")
+        steps.insert(0, ["plugin", "marketplace", "remove", "kairos"])
     if cli is None:
         out("  claude 명령을 찾지 못했다 — Claude Code 안에서 또는 직접 다음을 친다:")
         for s in steps:
