@@ -2,9 +2,16 @@
 
 > 이 저장소는 KAIROS의 **클라이언트·배포 묶음**이다. Claude Code 플러그인(`claude-plugin/`), Codex CLI 설치기(`codex-plugin/`), systemd 유닛(`systemd/`)이 있다. 코어(`noweel/kairos`)의 작업 트리에서는 `deploy/`로 체크아웃한다(`decisions.md` §128). **서버 쪽 설치와 운용**(유닛 등록·설정·접속·Telegram·재기동·백업)은 코어 저장소 루트의 `README.md`에 있다. 이 문서는 게이트웨이가 이미 떠 있다는 전제에서 **클라이언트를 붙이는 방법**만 다룬다.
 
+**체크아웃이 있으면 `python3 install.py` 하나로 끝난다.** 게이트웨이 주소를 한 번 묻고(Enter로 건너뛴다) 붙일 클라이언트를 골라 설치하며, 마지막에 이 기계에서 훅이 돌 수 있는지까지 본다. Windows·리눅스·macOS가 같은 명령이다. **토큰은 묻지 않는다** — 값을 받아 적으면 그것이 프로세스와 셸 이력을 지나가므로, 있는지만 보고 없으면 무엇을 할지 말한다.
+
+```bash
+python3 install.py                   # 코어 작업 트리에서는 python3 deploy/install.py
+python3 install.py --url http://<서버>:8080/mcp --allow-reads --yes   # 묻지 않고
+```
+
 | 클라이언트 | 붙이는 방법 | 자세히 |
 |---|---|---|
-| Claude Code | `claude plugin marketplace add noweel/kairos_mcp_client` + `claude plugin install kairos@kairos` | 아래 §1, `claude-plugin/README.md` |
+| Claude Code (CLI·PC 앱) | `python3 install.py`, 또는 `claude plugin marketplace add noweel/kairos_mcp_client` + `claude plugin install kairos@kairos` | 아래 §1, `claude-plugin/README.md` |
 | Codex CLI | 클론 뒤 `codex-plugin/install.py install` | 아래 §2, `codex-plugin/README.md` |
 | Antigravity 등 | MCP 등록만(설정의 `serverUrl`), 대화록 어댑터는 아직 없다 | 아래 §2 |
 
@@ -27,12 +34,21 @@ claude plugin install kairos@kairos                       # 사용자 스코프 
 
 **경로 표식.** 플러그인의 `.mcp.json`과 훅 스크립트는 요청마다 `X-KAIROS-Client: claude-code` 헤더를 보낸다(0.2.0, decisions.md §106). 게이트웨이가 이 값을 노트의 `source.client`로 적어 뷰어가 **인입 경로별로** 그래프를 가른다. 인증이 아니라 분류다 — 토큰과 무관하고, 없으면 그 노트는 「미상」이다. Codex·Gemini도 각자의 MCP 설정에서 같은 헤더를 보내면 갈라진다.
 
-**토큰.** 같은 호스트면 아무것도 설정하지 않아도 된다 — 게이트웨이의 루프백 면제(A8)로 붙는다. LAN이면 셸 프로필에 둘을 둔다. 플러그인의 `.mcp.json`은 `${KAIROS_TOKEN}`을 **참조만** 하므로 값이 설정 파일에 남지 않는다.
+**주소와 토큰.** 같은 호스트면 아무것도 설정하지 않아도 된다 — 게이트웨이의 루프백 면제(A8)로 붙는다. LAN이면 둘이 필요한데 **두는 자리가 다르다**.
+
+주소는 Claude Code의 설정 파일(`~/.claude/settings.json`의 `env`)에 적는다. 셸 프로필의 `export`는 **PC 앱이 읽지 못한다** — 앱은 로그인 셸을 거치지 않는다. 설치기나 `/kairos:setup`이 그 자리에 적고, Windows에서는 같은 경로가 `%USERPROFILE%\.claude`로 풀린다(`CLAUDE_CONFIG_DIR`로 옮길 수 있다). 파일은 엄격한 JSON이라 못 읽으면 **덮어쓰지 않고 멈춘다**.
+
+```
+/kairos:setup http://<서버>:8080/mcp        # Claude Code 안에서. 인자를 비우면 물어본다
+```
+
+토큰은 셸 프로필이나 토큰 파일에 둔다. 플러그인의 `.mcp.json`은 `${KAIROS_TOKEN}`을 **참조만** 하므로 값이 설정 파일에 남지 않는다. PC 앱에서는 셸 프로필이 닿지 않으니 토큰 파일(`~/.config/kairos/token`)을 두는 편이 확실하다.
 
 ```bash
-export KAIROS_URL=http://<서버>:8080/mcp
 export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온 값
 ```
+
+**훅은 셸을 거치지 않는다**(0.4.0, decisions.md §189). `hooks.json`이 exec 형식이라 `PATH`에서 `python3`를 직접 찾아 띄운다 — Windows에서 Git Bash도, 셔뱅도, 실행 권한도 필요하지 않다. 대신 그 이름이 PATH에 있어야 하는데, 없으면 MCP 조회는 그대로 되고 훅(자동 보관·세션 마감)만 조용히 실패한다. `/kairos:status`가 그 줄을 찍는다.
 
 **권한.** 플러그인이 붙인 MCP 툴의 권한 식별자는 `mcp__plugin_kairos_kairos__<툴>`이다(실측 2026-09-04 — 플러그인 경유라 서버 이름 앞에 `plugin_kairos_`가 붙는다). Claude Code는 `readOnlyHint`로 자동 승인하지 않으므로 조회 8종을 묻지 않게 하려면 `~/.claude/settings.json`의 `permissions.allow`에 이름을 적는다. 쓰기 3종(`archive_turn`·`finalize_session`·`add_knowledge`)은 넣지 않는다 — 매번 확인받는 편이 맞다.
 
@@ -45,7 +61,7 @@ export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온
 ] } }
 ```
 
-**확인.** Claude Code 안에서 `/kairos:status`. 게이트웨이·토큰 출처·툴 수·자동 보관 여부·이 프로젝트의 대화록과 보낸 턴 수를 한 화면에 보인다. 실패 줄은 다음 조치를 문장으로 말한다.
+**확인.** Claude Code 안에서 `/kairos:status`. 게이트웨이·토큰 출처·툴 수·자동 보관 여부·`python3` 해석 결과·이 프로젝트의 대화록과 보낸 턴 수를 한 화면에 보인다. 실패 줄은 다음 조치를 문장으로 말한다.
 
 **보관.** 기본은 **명시 보관**이다(11-B-2). 대화를 넣고 싶을 때 `/kairos:archive`를 치면 이 프로젝트의 지금 대화록에서 아직 보내지 않은 턴만 보내고 세션을 마감한다. 두 번 쳐도 같은 턴을 다시 보내지 않는다. 턴마다 자동으로 보내려면 `export KAIROS_AUTO_ARCHIVE=1` — 훅은 이미 등록돼 있고 이 변수가 그것을 켠다. 잡담 세션까지 전부 노트가 되면 §2.1이 막으려던 검색 노이즈가 세션 단위로 돌아오므로, 실사용에서 노이즈 비율을 본 뒤 정한다.
 

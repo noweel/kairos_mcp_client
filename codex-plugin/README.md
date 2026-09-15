@@ -24,6 +24,10 @@ git clone https://github.com/noweel/kairos_mcp_client.git      # 이미 체크�
 python3 kairos_mcp_client/codex-plugin/install.py install
 ```
 
+**주소를 한 번 묻습니다.** 그냥 Enter면 건너뛰고 이미 등록된 값이나 `http://127.0.0.1:8080/mcp`를 씁니다. `--url`로 미리 줄 수도 있습니다. 토큰은 묻지 않습니다 — 값이 프로세스와 셸 이력을 지나가므로, LAN이면 셸 프로필의 `KAIROS_TOKEN`을 보라고 안내만 합니다.
+
+훅에 적히는 인터프리터는 **설치기가 돌고 있는 파이썬의 절대 경로**입니다. `python3`라는 이름이 PATH에 없는 기계(Windows)에서도 훅이 돕니다.
+
 게이트웨이가 다른 기계(LAN)에 있으면 주소를 줍니다. 이때 `config.toml`에는 토큰 값이 아니라 **변수 이름**(`bearer_token_env_var = "KAIROS_TOKEN"`)만 적히므로, 셸 프로필에 토큰을 두어야 합니다.
 
 ```bash

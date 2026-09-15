@@ -66,13 +66,55 @@ def strip_config(text: str) -> str:
     return SECTION_RE.sub("", text).rstrip("\n") + ("\n" if text.strip() else "")
 
 
+def current_url(home: Path) -> str | None:
+    """이미 등록된 `[mcp_servers.kairos].url` — 프롬프트의 기본값이다."""
+    cfg = home / "config.toml"
+    if not cfg.exists():
+        return None
+    m = SECTION_RE.search(cfg.read_text(encoding="utf-8"))
+    if not m:
+        return None
+    found = re.search(r'^\s*url\s*=\s*"([^"]+)"', m.group(0), re.M)
+    return found.group(1) if found else None
+
+
+def ask_url(current: str) -> str | None:
+    """설치 때 한 번 묻는다. **비우면 건너뛴다** — 같은 호스트면 기본값으로 붙는다.
+
+    터미널이 아니면 묻지 않는다(CI·스크립트에서 불릴 수 있다).
+    """
+    if not sys.stdin.isatty():
+        return None
+    print(f"게이트웨이 MCP 주소를 적는다. 그냥 Enter면 건너뛴다(지금 값: {current}).")
+    try:
+        answer = input("  주소> ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return None
+    if not answer:
+        return None
+    if "://" not in answer:
+        answer = "http://" + answer
+    if not answer.rstrip("/").endswith("/mcp"):
+        answer = answer.rstrip("/") + "/mcp"
+    return answer
+
+
 def hook_entries(client: Path) -> dict[str, list]:
+    """훅 명령을 만든다 — **인터프리터는 절대 경로다**(decisions.md §189).
+
+    `python3`라고 적어 두면 Windows에서 PATH에 그 이름이 없을 수 있고(python.org 설치본은
+    `python.exe`만 놓는 경우가 있다) 그러면 훅만 조용히 실패한다. 설치기는 자기가 돌고 있는
+    인터프리터를 아니까 그것을 적는다. Claude Code 쪽 훅은 플러그인이 정적으로 싣는 파일이라
+    이렇게 할 수 없고, 거기서는 `status`의 진단이 같은 사실을 말한다.
+    """
     tmpl = json.loads((HERE / "hooks.json").read_text(encoding="utf-8"))["hooks"]
     out = {}
     for event, groups in tmpl.items():
         for g in groups:
             for h in g["hooks"]:
-                h["command"] = h["command"].replace("{KAIROS_CLIENT}", str(client))
+                h["command"] = (h["command"].replace("{KAIROS_PYTHON}", sys.executable)
+                                .replace("{KAIROS_CLIENT}", str(client)))
         out[event] = groups
     return out
 
@@ -176,14 +218,25 @@ def uninstall(home: Path, dry_run: bool) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="install.py", description=__doc__.split("\n")[0])
     parser.add_argument("action", choices=["install", "uninstall"])
-    parser.add_argument("--url", default=os.environ.get("KAIROS_URL", DEFAULT_URL),
-                        help=f"게이트웨이 MCP 주소 (기본 {DEFAULT_URL}, KAIROS_URL 환경 변수를 따른다)")
+    parser.add_argument("--url", default=None,
+                        help="게이트웨이 MCP 주소. 없으면 설치할 때 묻고, 비우면 이미 등록된 값이나 "
+                             f"{DEFAULT_URL}을 쓴다 (KAIROS_URL 환경 변수를 따른다)")
     parser.add_argument("--codex-home", type=Path, default=None, help="기본 ~/.codex (CODEX_HOME)")
     parser.add_argument("--dry-run", action="store_true", help="무엇을 할지만 보인다")
     args = parser.parse_args(argv)
     home = args.codex_home or codex_home()
-    done = install(home, args.url, args.dry_run) if args.action == "install" else uninstall(home, args.dry_run)
+    if args.action == "uninstall":
+        print("\n".join(uninstall(home, args.dry_run)) or "할 일 없음")
+        return 0
+    # **주소는 설치할 때 묻는다(건너뛸 수 있다).** 기본값의 서열: 인자 → 이미 등록된 값 →
+    # KAIROS_URL → 루프백. 이미 등록된 값이 환경 변수보다 앞인 이유는, 한 번 정한 것을
+    # 어쩌다 켜진 변수가 조용히 덮는 편이 더 나쁘기 때문이다.
+    settled = args.url or current_url(home) or os.environ.get("KAIROS_URL") or DEFAULT_URL
+    url = args.url or ask_url(settled) or settled
+    done = install(home, url, args.dry_run)
+    args.url = url                                 # 아래 안내가 같은 값을 본다
     print("\n".join(done) if done else "할 일 없음")
+    print(f"주소         {url}")
     if args.action == "install" and not args.dry_run:
         print("\nCodex를 다시 시작하면 적용된다. 확인은 Codex 안에서 `$kairos-status`.")
         if not is_loopback(args.url):
