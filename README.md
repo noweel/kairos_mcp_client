@@ -48,7 +48,7 @@ claude plugin install kairos@kairos                       # 사용자 스코프 
 export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온 값
 ```
 
-**훅은 셸을 거치지 않는다**(0.4.0, decisions.md §189). `hooks.json`이 exec 형식이라 `PATH`에서 `python3`를 직접 찾아 띄운다 — Windows에서 Git Bash도, 셔뱅도, 실행 권한도 필요하지 않다. 대신 그 이름이 PATH에 있어야 하는데, 없으면 MCP 조회는 그대로 되고 훅(자동 보관·세션 마감)만 조용히 실패한다. `/kairos:status`가 그 줄을 찍는다.
+**훅은 셸을 거치지 않는다**(0.5.0, decisions.md §189). `hooks.json`이 exec 형식이라 `PATH`에서 `python3`를 직접 찾아 띄운다 — Windows에서 Git Bash도, 셔뱅도, 실행 권한도 필요하지 않다. 대신 그 이름이 PATH에 있어야 하는데, 없으면 MCP 조회는 그대로 되고 훅(자동 보관·세션 마감)만 조용히 실패한다. `/kairos:status`가 그 줄을 찍는다.
 
 **Windows에는 그 이름이 없을 수 있다.** PEP 394가 보증하는 `python3`는 Windows를 제외하고, python.org 설치본은 `python.exe`와 `py.exe`만 놓는다. `install.py`가 그것을 보고 **물어본 뒤** 심을 만든다.
 
