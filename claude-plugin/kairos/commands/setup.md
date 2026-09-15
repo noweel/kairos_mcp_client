@@ -1,12 +1,12 @@
 ---
 description: KAIROS 게이트웨이 주소를 이 기계에 적는다 (건너뛸 수 있다) — /kairos:setup [주소]
-allowed-tools: Bash(python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client:*)
+allowed-tools: Bash("${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client:*)
 ---
 
 아래는 방금 실행한 결과다. 인자를 받았으면 그 주소를 적었고, 없으면 지금 상태만 보였다.
 
 ```
-!`python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client setup --set-url "$ARGUMENTS" 2>&1`
+!`"${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client setup --set-url "$ARGUMENTS" 2>&1`
 ```
 
 **출력에 「건너뜀」이 있으면** 사용자에게 게이트웨이 주소를 한 문장으로 묻는다. 같은 기계에서

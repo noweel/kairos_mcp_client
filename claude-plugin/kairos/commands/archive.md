@@ -1,12 +1,12 @@
 ---
 description: 이 대화를 KAIROS에 보관한다 (명시 보관 — 사람의 프롬프트와 답변만 간다)
-allowed-tools: Bash(python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client:*)
+allowed-tools: Bash("${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client:*)
 ---
 
 사용자가 이 대화의 보관을 요청했다. 아래는 방금 실행한 결과다 — 이 프로젝트의 가장 최근 대화록(지금 이 세션)에서 **아직 보내지 않은 턴만** 보냈고, 세션을 마감했다.
 
 ```
-!`python3 "${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client replay --project "${CLAUDE_PROJECT_DIR}" 2>&1`
+!`"${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client replay --project "${CLAUDE_PROJECT_DIR}" 2>&1`
 ```
 
 보낸 턴 수를 한 줄로 알린다. 보낼 턴이 없었으면 이미 보관되어 있다고 말한다. 실패 줄이 있으면 그 사유를 그대로 전한다.

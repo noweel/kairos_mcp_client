@@ -5,12 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/kairos-client",
-              "hook",
-              "stop"
-            ],
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/kairos-client hook stop",
             "timeout": 120
           }
         ]
@@ -21,12 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/kairos-client",
-              "hook",
-              "end"
-            ],
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/kairos-client hook end",
             "timeout": 30
           }
         ]

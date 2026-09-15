@@ -8,11 +8,11 @@ Claude Code를 KAIROS 지식저장고에 붙이는 플러그인입니다. 설치
 | 훅 2종 | `kairos/hooks/hooks.json` | `Stop`(턴 전송)·`SessionEnd`(세션 마감). **등록만 되고 켜져 있지는 않습니다**(아래 「자동 보관」) |
 | 사용 정책 스킬 | `kairos/skills/kairos/SKILL.md` | "언제 저장고를 먼저 보는가"를 Claude에게 줍니다. 툴이 있어도 이것이 없으면 거의 부르지 않습니다 |
 | 슬래시 명령 | `kairos/commands/setup.md`·`status.md`·`archive.md` | `/kairos:setup`(주소 적기 — 건너뛸 수 있습니다), `/kairos:status`(연결 상태), `/kairos:archive`(이 대화를 명시 보관) |
-| 클라이언트 스크립트 | `kairos/scripts/kairos-client` | 훅과 명령이 부르는 본체. 표준 라이브러리만 쓰므로 KAIROS 체크아웃 없이 이 디렉터리만 있으면 동작합니다 |
+| 클라이언트 스크립트 | `kairos/scripts/kairos-client.py` | 훅과 명령이 부르는 본체. 표준 라이브러리만 쓰므로 KAIROS 체크아웃 없이 이 디렉터리만 있으면 동작합니다. 같은 자리의 `kairos-client`는 실행 가능한 파이썬(`python3` · `python` · `py -3` 순)을 골라 본체로 넘기는 sh 진입점입니다. Windows의 python.org 설치본에는 `python3.exe`가 없어 `python3`이 스토어 스텁으로 풀리기 때문입니다 |
 
 ## 요구 사항
 
-- Claude Code(플러그인 지원 버전), Python 3.10 이상이 **`python3`라는 이름으로 `PATH`에** 있어야 합니다(Windows에서는 `install.py`가 심을 만들어 줍니다)(훅과 슬래시 명령이 셸을 거치지 않고 그 이름을 직접 띄웁니다). 없으면 MCP 조회는 되고 훅만 돌지 않으며, `/kairos:status`가 그 사실을 말합니다.
+- Claude Code(플러그인 지원 버전), Python 3.10 이상. 이름은 `python3` · `python` · `py -3` 중 아무것이나 되며 진입점이 **실행해 보고** 고릅니다. 셋 다 안 되면 MCP 조회는 되고 훅만 돌지 않으며, `/kairos:status`가 그 사실을 말합니다.
 - 동작 중인 KAIROS 게이트웨이(`kairos serve` 또는 `kairos-gateway` 유닛). 게이트웨이가 없어도 설치는 되고, `/kairos:status`가 "연결 안 됨"을 말해 줍니다.
 
 ## 설치
@@ -140,7 +140,7 @@ claude plugin marketplace remove kairos              # GitHub 경로로 등록�
 | 툴이 목록에 없다 | 설치 뒤 Claude Code를 다시 시작했는가. `claude plugin list`에서 `enabled`인가 |
 | 보관했는데 노트가 안 생긴다 | 서버 쪽 정규화가 대기 중일 수 있습니다(모델 서버 부재). `kairos status`와 `kairos trace <queue_id>`가 사실을 보입니다 |
 | 노트가 「미상」 경로로 잡힌다 | 플러그인 0.2.0 이전에 시작한 세션입니다. 서버에서 `kairos migrate-client --apply`가 근거 있는 것만 채웁니다 |
-| 훅만 돌지 않는다 (MCP 조회는 된다) | `/kairos:status`의 `python3` 줄을 봅니다. 훅은 셸을 거치지 않고 `PATH`에서 `python3`를 찾으므로 그 이름이 없으면 훅만 조용히 실패합니다. Windows에서는 `python3 install.py`가 물어본 뒤 심을 만들어 줍니다(되돌리기는 `install.py remove-shim`). 체크아웃이 없으면 python.org 설치본에서 「Add python.exe to PATH」를 켭니다 |
+| 훅만 돌지 않는다 (MCP 조회는 된다) | `/kairos:status`의 「파이썬」 줄을 봅니다. 진입점이 `python3` · `python` · `py -3`을 실행해 보는데 셋 다 안 되면 훅만 조용히 실패합니다. Windows는 `winget install Python.Python.3.12` |
 | PC 앱에서만 주소가 다르다 | 앱은 로그인 셸을 거치지 않아 `.bashrc`의 `export KAIROS_URL`을 읽지 못합니다. `/kairos:setup <주소>`로 설정 파일에 적습니다 |
 
 Codex CLI는 `codex-plugin/`의 설치기가 같은 스크립트를 `--client codex`로 놓습니다. Antigravity는 아직 어댑터가 없습니다. 서버 쪽 설치와 운용 전체는 이 저장소 루트의 `README.md`에 있습니다.
