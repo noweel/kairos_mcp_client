@@ -537,9 +537,9 @@ def doctor(url: str) -> list[str]:
     if exe:
         lines.append(f"python3      {exe}")
     else:
-        hint = ("Windows: python.org 설치본에서 「Add python.exe to PATH」를 켜거나 "
-                "`winget install Python.Python.3.12`" if os.name == "nt"
-                else "리눅스: `sudo apt install python3`")
+        hint = ("Windows: 체크아웃이 있으면 `python3 install.py`가 심을 만들어 준다. "
+                "없으면 python.org 설치본에서 「Add python.exe to PATH」를 켠다"
+                if os.name == "nt" else "리눅스: `sudo apt install python3`")
         lines.append(f"python3      PATH에 없다 — 훅(자동 보관·세션 마감)이 돌지 않는다. {hint}")
     host = url.split("://")[-1].split("/")[0].split(":")[0].lower()
     if host not in ("127.0.0.1", "localhost", "::1"):

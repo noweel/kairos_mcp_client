@@ -50,6 +50,17 @@ export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온
 
 **훅은 셸을 거치지 않는다**(0.4.0, decisions.md §189). `hooks.json`이 exec 형식이라 `PATH`에서 `python3`를 직접 찾아 띄운다 — Windows에서 Git Bash도, 셔뱅도, 실행 권한도 필요하지 않다. 대신 그 이름이 PATH에 있어야 하는데, 없으면 MCP 조회는 그대로 되고 훅(자동 보관·세션 마감)만 조용히 실패한다. `/kairos:status`가 그 줄을 찍는다.
 
+**Windows에는 그 이름이 없을 수 있다.** PEP 394가 보증하는 `python3`는 Windows를 제외하고, python.org 설치본은 `python.exe`와 `py.exe`만 놓는다. `install.py`가 그것을 보고 **물어본 뒤** 심을 만든다.
+
+```
+2) 훅 인터프리터
+  python3 이 PATH에 없다. python 을 찾았다: C:\Python312\python.exe
+  훅이 돌게 하려면 …\KAIROS\bin\python3.cmd 를 만들고 그 디렉터리를 사용자 PATH에 더한다.
+  만들까? (사용자 PATH를 고친다) [Y/n]
+```
+
+되돌리는 것은 `python3 install.py remove-shim`이다. 심은 인터프리터를 **절대 경로**로 부르고, PATH는 레지스트리의 **사용자** 값만 읽고 붙인다(`%PATH%`를 되쓰면 시스템 항목이 사용자 스코프로 복사되고, `setx`는 1024자에서 잘라 버린다).
+
 **권한.** 플러그인이 붙인 MCP 툴의 권한 식별자는 `mcp__plugin_kairos_kairos__<툴>`이다(실측 2026-09-04 — 플러그인 경유라 서버 이름 앞에 `plugin_kairos_`가 붙는다). Claude Code는 `readOnlyHint`로 자동 승인하지 않으므로 조회 8종을 묻지 않게 하려면 `~/.claude/settings.json`의 `permissions.allow`에 이름을 적는다. 쓰기 3종(`archive_turn`·`finalize_session`·`add_knowledge`)은 넣지 않는다 — 매번 확인받는 편이 맞다.
 
 ```json
