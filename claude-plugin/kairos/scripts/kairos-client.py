@@ -42,6 +42,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 import urllib.error
@@ -438,6 +439,10 @@ READ_ONLY_TOOLS = ("search_knowledge", "get_note", "get_source", "get_related",
                    "list_by_filter", "list_vocabulary", "trace_ingest", "export_graph")
 PERM_PREFIX = "mcp__plugin_kairos_kairos__"
 
+# 플러그인 설치 이름 — `<플러그인>@<마켓플레이스>`이고 둘 다 `kairos`다. `pluginConfigs`의
+# 키가 이것이며, `claude plugin install kairos@kairos --config python=…`도 같은 이름을 쓴다.
+PLUGIN_ID = "kairos@kairos"
+
 
 def claude_settings_path() -> Path:
     """사용자 설정 파일. Windows에서도 `~/.claude`이며 `%USERPROFILE%\\.claude`로 풀린다.
@@ -498,9 +503,40 @@ def setup_settings(url: str | None, *, allow_reads: bool, path: Path,
             done.append(f"조회 툴 {len(added)}종을 permissions.allow에 더함 (쓰기 3종은 넣지 않는다)")
         else:
             done.append("조회 툴은 이미 허용돼 있다")
+    # **훅이 부를 파이썬을 이 기계의 절대 경로로 적는다**(decisions.md §190). 훅은 exec
+    # 형식이라 셸을 거치지 않으므로 `python3` 같은 이름은 PATH가 정하는데, Windows에서는
+    # 그 이름이 스토어 스텁으로 풀려 "Python was not found"로 죽는다(실측 2026-09-13).
+    # 지금 이 코드를 돌리고 있는 인터프리터만이 이 기계에서 확실히 도는 값이다.
+    configs = dict(obj.get("pluginConfigs") or {})
+    entry = dict(configs.get(PLUGIN_ID) or {})
+    options = dict(entry.get("options") or {})
+    if options.get("python") == sys.executable:
+        done.append(f"훅 파이썬 그대로: {sys.executable}")
+    else:
+        options["python"] = sys.executable
+        entry["options"] = options
+        configs[PLUGIN_ID] = entry
+        obj["pluginConfigs"] = configs
+        done.append(f"훅 파이썬 기록: pluginConfigs.{PLUGIN_ID}.options.python = {sys.executable}")
     if done and not dry_run:
         save_settings(path, obj)
     return done
+
+
+def configured_hook_python(obj: dict) -> str | None:
+    """설정에 적힌 훅 파이썬. 없으면 None — 그때는 플러그인 기본값 `python3`이 쓰인다."""
+    try:
+        return (obj["pluginConfigs"][PLUGIN_ID]["options"]["python"] or None)
+    except (KeyError, TypeError):
+        return None
+
+
+def normalise_url(answer: str) -> str:
+    """사람이 적은 주소를 MCP 주소로 맞춘다. `192.168.0.5:8080` 만 적는 사람이 있다."""
+    answer = answer.strip()
+    if "://" not in answer:
+        answer = "http://" + answer
+    return answer if answer.rstrip("/").endswith("/mcp") else answer.rstrip("/") + "/mcp"
 
 
 def ask_url(current: str) -> str | None:
@@ -516,41 +552,34 @@ def ask_url(current: str) -> str | None:
     except (EOFError, KeyboardInterrupt):
         print()
         return None
-    if not answer:
-        return None
-    if "://" not in answer:                      # `192.168.0.5:8080` 만 적는 사람이 있다
-        answer = "http://" + answer
-    if not answer.rstrip("/").endswith("/mcp"):
-        answer = answer.rstrip("/") + "/mcp"
-    return answer
+    return normalise_url(answer) if answer else None
 
 
 def doctor(url: str) -> list[str]:
     """이 기계에서 훅이 실제로 돌 수 있는지 본다 — 설치가 조용히 반쪽이 되는 자리다.
 
-    훅은 `kairos-client` sh 진입점을 거쳐 **실행되는** 파이썬을 고르므로(§189) 이름이
-    있는지가 아니라 **도는지**를 본다. Windows의 스토어 스텁은 PATH에 실재하면서
-    `-c`에 실패하는데, 그 구분은 실행해 봐야만 난다.
+    훅은 **셸을 거치지 않는다**(exec 형식, decisions.md §190). 부를 파이썬은 플러그인
+    사용자 설정에 적힌 값 하나뿐이라, 이름이 PATH에 있는지가 아니라 **그 값이 도는지**를
+    본다. Windows의 스토어 스텁은 PATH에 실재하면서 `-c`에 실패하는데, 그 구분은 실행해
+    봐야만 난다.
     """
     lines = []
-    for name, argv in (("python3", ["python3"]), ("python", ["python"]), ("py -3", ["py", "-3"])):
-        exe = shutil.which(argv[0])
-        if not exe:
-            continue
-        try:
-            import subprocess
-
-            ok = subprocess.run([*argv, "-c", "import sys"], capture_output=True,
-                                timeout=20).returncode == 0
-        except (OSError, ValueError):
-            ok = False
-        if ok:
-            lines.append(f"파이썬       {name} → {exe}")
-            break
+    try:
+        configured = configured_hook_python(load_settings(claude_settings_path()))
+    except (OSError, ValueError):
+        configured = None                        # 설정이 망가졌다 — setup이 그 사유를 따로 찍는다
+    name = configured or "python3"               # 플러그인 기본값(plugin.json의 userConfig)
+    where = "설정" if configured else "플러그인 기본값"
+    try:
+        ok = subprocess.run([name, "-c", "import sys"], capture_output=True,
+                            timeout=20).returncode == 0
+    except (OSError, ValueError):
+        ok = False
+    if ok:
+        lines.append(f"훅 파이썬    {name} ({where})")
     else:
-        lines.append("파이썬       실행되는 것이 없다 — 훅(자동 보관·세션 마감)이 돌지 않는다. "
-                     + ("Windows: `winget install Python.Python.3.12`" if os.name == "nt"
-                        else "리눅스: `sudo apt install python3`"))
+        lines.append(f"훅 파이썬    {name} ({where}) — 돌지 않는다. 훅(자동 보관·세션 마감)이 "
+                     "멈춘다. `/kairos:setup`을 한 번 돌리면 이 기계의 파이썬으로 고쳐 적는다")
     host = url.split("://")[-1].split("/")[0].split(":")[0].lower()
     if host not in ("127.0.0.1", "localhost", "::1"):
         token, source = read_token()
@@ -645,7 +674,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.mode == "setup":
         path = claude_settings_path()
-        chosen = args.set_url or ask_url(args.url)
+        chosen = normalise_url(args.set_url) if args.set_url else ask_url(args.url)
         try:
             done = setup_settings(chosen, allow_reads=args.allow_reads, path=path,
                                   dry_run=args.dry_run)
@@ -654,9 +683,15 @@ def main(argv: list[str] | None = None) -> int:
             _log("  엄격한 JSON이라 주석이나 꼬리 쉼표가 있으면 여기서 멈춘다. "
                  "고친 뒤 다시 돌린다 — 덮어쓰지 않았다.")
             return 1
-        effective = chosen or args.url
+        try:                                     # 방금 적었을 수 있다
+            effective = chosen or (load_settings(path).get("env") or {}).get("KAIROS_URL") or args.url
+        except (OSError, ValueError):
+            effective = chosen or args.url
+        if not chosen:                           # setup.md가 이 말을 보고 주소를 묻는다
+            done.insert(0, "건너뜀 — 주소를 바꾸지 않았다")
         print(f"설정 파일    {path}")
-        for line in done or ["건너뜀 — 주소를 바꾸지 않았다"]:
+        for line in done:                        # dry-run은 적지 않았다고 분명히 말한다
+            line = ("(dry-run) " + line) if args.dry_run else line
             print(f"  · {line}")
         print(f"쓸 주소      {effective}")
         print("\n".join("  " + x for x in doctor(effective)))

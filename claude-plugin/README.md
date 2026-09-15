@@ -8,7 +8,7 @@ Claude Code를 KAIROS 지식저장고에 붙이는 플러그인입니다. 설치
 | 훅 2종 | `kairos/hooks/hooks.json` | `Stop`(턴 전송)·`SessionEnd`(세션 마감). **등록만 되고 켜져 있지는 않습니다**(아래 「자동 보관」) |
 | 사용 정책 스킬 | `kairos/skills/kairos/SKILL.md` | "언제 저장고를 먼저 보는가"를 Claude에게 줍니다. 툴이 있어도 이것이 없으면 거의 부르지 않습니다 |
 | 슬래시 명령 | `kairos/commands/setup.md`·`status.md`·`archive.md` | `/kairos:setup`(주소 적기 — 건너뛸 수 있습니다), `/kairos:status`(연결 상태), `/kairos:archive`(이 대화를 명시 보관) |
-| 클라이언트 스크립트 | `kairos/scripts/kairos-client.py` | 훅과 명령이 부르는 본체. 표준 라이브러리만 쓰므로 KAIROS 체크아웃 없이 이 디렉터리만 있으면 동작합니다. 같은 자리의 `kairos-client`는 실행 가능한 파이썬(`python3` · `python` · `py -3` 순)을 골라 본체로 넘기는 sh 진입점입니다. Windows의 python.org 설치본에는 `python3.exe`가 없어 `python3`이 스토어 스텁으로 풀리기 때문입니다 |
+| 클라이언트 스크립트 | `kairos/scripts/kairos-client.py` | 훅과 명령이 부르는 본체. 표준 라이브러리만 쓰므로 KAIROS 체크아웃 없이 이 디렉터리만 있으면 동작합니다. 같은 자리의 `kairos-client`(sh)와 `kairos-client.cmd`(배치)는 실행 가능한 파이썬(`python3` · `python` · `py -3` 순)을 골라 본체로 넘기는 진입점이며, **슬래시 명령이** 씁니다. Windows의 python.org 설치본에는 `python3.exe`가 없어 `python3`이 스토어 스텁으로 풀리기 때문입니다. 훅은 진입점을 거치지 않습니다 — `hooks.json`이 exec 형식으로 파이썬을 직접 부릅니다(decisions.md §190) |
 
 ## 요구 사항
 
@@ -140,7 +140,7 @@ claude plugin marketplace remove kairos              # GitHub 경로로 등록�
 | 툴이 목록에 없다 | 설치 뒤 Claude Code를 다시 시작했는가. `claude plugin list`에서 `enabled`인가 |
 | 보관했는데 노트가 안 생긴다 | 서버 쪽 정규화가 대기 중일 수 있습니다(모델 서버 부재). `kairos status`와 `kairos trace <queue_id>`가 사실을 보입니다 |
 | 노트가 「미상」 경로로 잡힌다 | 플러그인 0.2.0 이전에 시작한 세션입니다. 서버에서 `kairos migrate-client --apply`가 근거 있는 것만 채웁니다 |
-| 훅만 돌지 않는다 (MCP 조회는 된다) | `/kairos:status`의 「파이썬」 줄을 봅니다. 진입점이 `python3` · `python` · `py -3`을 실행해 보는데 셋 다 안 되면 훅만 조용히 실패합니다. Windows는 `winget install Python.Python.3.12` |
+| 훅만 돌지 않는다 (MCP 조회는 된다) | `/kairos:status`의 「훅 파이썬」 줄을 봅니다. 훅은 설정에 적힌 파이썬 하나를 부르므로(`pluginConfigs["kairos@kairos"].options.python`), 그 값이 없거나 돌지 않으면 훅만 조용히 실패합니다. **`/kairos:setup`을 한 번 돌리면 이 기계의 파이썬으로 고쳐 적습니다.** 파이썬 자체가 없으면 Windows는 `winget install Python.Python.3.12` |
 | PC 앱에서만 주소가 다르다 | 앱은 로그인 셸을 거치지 않아 `.bashrc`의 `export KAIROS_URL`을 읽지 못합니다. `/kairos:setup <주소>`로 설정 파일에 적습니다 |
 
 Codex CLI는 `codex-plugin/`의 설치기가 같은 스크립트를 `--client codex`로 놓습니다. Antigravity는 아직 어댑터가 없습니다. 서버 쪽 설치와 운용 전체는 이 저장소 루트의 `README.md`에 있습니다.

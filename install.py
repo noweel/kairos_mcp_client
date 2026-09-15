@@ -13,9 +13,9 @@ CLI와 PC 앱이 같이 읽고 Windows·리눅스가 같은 경로 규칙을 쓰
 **토큰은 묻지 않는다.** 값을 받아 적으면 그 값이 이 프로세스와 로그를 지나간다. 있는지만
 보고 없으면 무엇을 하라고 말한다 — 넣는 것은 사람이 한다.
 
-**훅 인터프리터는 건드리지 않는다.** 플러그인의 `scripts/kairos-client`가 sh 진입점이라
-`python3` · `python` · `py -3` 중 **실제로 실행되는 것**을 스스로 고른다(§189). 설치기는 그것이
-이 기계에서 되는지만 보고(`status`의 「파이썬」 줄) 안 되면 무엇을 할지 말한다.
+**훅 인터프리터는 여기서 정한다.** 훅은 셸을 거치지 않으므로(exec 형식, §190) 부를 파이썬을
+이름이 아니라 **절대 경로로** 알아야 한다. 이 설치기가 돌고 있는 인터프리터가 이 기계에서
+확실히 도는 값이라, 그것을 플러그인 사용자 설정(`--config python=…`)으로 넘긴다.
 
 표준 라이브러리만 쓴다. `--dry-run`이면 아무것도 쓰지 않는다.
 """
@@ -83,8 +83,11 @@ def install_plugin(dry_run: bool) -> None:
     고친 것이 바로 반영된다. GitHub에서 받고 싶으면 안내에 적힌 쪽을 쓴다.
     """
     cli = claude_cli()
+    # `--config python=…`: 훅이 부를 인터프리터를 이 기계의 절대 경로로 박는다(§190).
+    # 이 값이 없으면 플러그인 기본값 `python3`이 쓰이는데, Windows에서는 그 이름이
+    # 스토어 스텁으로 풀려 훅만 조용히 죽는다.
     steps = [["plugin", "marketplace", "add", str(MARKETPLACE)],
-             ["plugin", "install", "kairos@kairos"]]
+             ["plugin", "install", "kairos@kairos", "--config", f"python={sys.executable}"]]
     if cli is None:
         out("  claude 명령을 찾지 못했다 — Claude Code 안에서 또는 직접 다음을 친다:")
         for s in steps:

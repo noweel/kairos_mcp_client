@@ -48,7 +48,12 @@ claude plugin install kairos@kairos                       # 사용자 스코프 
 export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온 값
 ```
 
-**인터프리터는 진입점이 고른다**(decisions.md §189). `scripts/kairos-client`는 `#!/bin/sh` 진입점이고, `python3` · `python` · `py -3`을 순서대로 **실제로 실행해 보고** 되는 것으로 본체(`kairos-client.py`)를 넘긴다. 이름이 있는지만 보지 않는 이유가 있다 — Windows의 python.org 설치본에는 `python3.exe`가 없어 그 이름이 스토어 스텁으로 풀리는데, 그 스텁은 PATH에 실재하면서 "Python was not found"로 죽는다(실측 2026-09-13). 셋 다 안 되면 `/kairos:status`의 「파이썬」 줄이 그 사실을 말한다.
+**인터프리터를 정하는 자리가 둘이다**(decisions.md §189·§190).
+
+- **훅**은 설정에서 받는다. `hooks.json`이 exec 형식이라 셸을 거치지 않으므로 부를 파이썬을 이름이 아니라 **절대 경로로** 알아야 한다. 설치기가 `--config python=<이 설치기의 파이썬>`으로 넘기고, `/kairos:setup`은 `~/.claude/settings.json`의 `pluginConfigs["kairos@kairos"].options.python`에 적는다. 값이 없으면 플러그인 기본값 `python3`이 쓰인다.
+- **슬래시 명령**은 진입점이 고른다. `scripts/kairos-client`(sh)와 `scripts/kairos-client.cmd`(배치)가 `python3` · `python` · `py -3`을 순서대로 **실제로 실행해 보고** 되는 것으로 본체(`kairos-client.py`)를 넘긴다. 이름이 있는지만 보지 않는 이유가 있다 — Windows의 python.org 설치본에는 `python3.exe`가 없어 그 이름이 스토어 스텁으로 풀리는데, 그 스텁은 PATH에 실재하면서 "Python was not found"로 죽는다(실측 2026-09-13).
+
+어느 쪽이든 안 되면 `/kairos:status`의 「훅 파이썬」 줄이 그 사실을 말한다.
 
 **권한.** 플러그인이 붙인 MCP 툴의 권한 식별자는 `mcp__plugin_kairos_kairos__<툴>`이다(실측 2026-09-04 — 플러그인 경유라 서버 이름 앞에 `plugin_kairos_`가 붙는다). Claude Code는 `readOnlyHint`로 자동 승인하지 않으므로 조회 8종을 묻지 않게 하려면 `~/.claude/settings.json`의 `permissions.allow`에 이름을 적는다. 쓰기 3종(`archive_turn`·`finalize_session`·`add_knowledge`)은 넣지 않는다 — 매번 확인받는 편이 맞다.
 
@@ -71,17 +76,13 @@ export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온
 
 ---
 
-## 1.1 Windows에서의 제약
+## 1.1 Windows에서 유의할 것
 
-설치와 MCP 연결은 Windows에서 그대로 된다. 걸리는 자리는 **셸을 거치는 것들**이다.
+설치·MCP 연결·훅은 Windows에서 그대로 된다. **셸을 거치는 자리를 없앴기 때문이다**(decisions.md §190) — 훅은 exec 형식이라 셸을 띄우지 않고, 슬래시 명령의 주입 줄은 Git Bash와 PowerShell 양쪽에서 유효한 꼴이다. 그래서 **Git for Windows는 권장이지 요구가 아니다**(Claude Code 자신의 Bash 도구를 위해 깔아 두는 편이 낫다).
 
-| 되는 것 | 안 될 수 있는 것 |
-|---|---|
-| `install.py`, `/kairos:setup`이 적는 설정, MCP 툴 11종(게이트웨이와 직접 HTTP) | 훅 2종(자동 보관·세션 마감)과 슬래시 명령 셋(`/kairos:setup`·`status`·`archive`) |
+**훅이 부를 파이썬은 설정에서 온다.** `install.py`나 `/kairos:setup`이 이 기계의 절대 경로를 적는다. 둘 다 거치지 않고 마켓플레이스로 플러그인만 붙였다면 기본값 `python3`이 쓰이는데, python.org 설치본의 Windows에서는 그 이름이 스토어 스텁으로 풀려 훅만 조용히 죽는다. `/kairos:setup`을 한 번 돌리면 고쳐진다. `/kairos:status`의 「훅 파이썬」 줄이 지금 무엇을 부르는지 보여 준다.
 
-**Git Bash가 필요하다.** 훅과 슬래시 명령은 셸 형식이라 Claude Code가 셸을 띄우는데, Windows에서는 Git Bash이고 **그것이 없으면 PowerShell로 떨어진다**. 진입점이 `#!/bin/sh` 스크립트라 PowerShell에서는 돌지 않는다. MCP 툴은 셸을 거치지 않으므로 이 경우에도 조회와 인입은 그대로 된다. 관측된 적은 없고(decisions.md §189), 겪으면 Git Bash를 깔거나 그 사실을 알려 주면 exec 형식을 다시 본다.
-
-**파이썬은 이름이 아니라 실행으로 판정한다.** `python3` · `python` · `py -3` 중 하나가 실제로 돌면 된다. python.org 설치본에 `python3.exe`가 없어 그 이름이 스토어 스텁으로 풀리는 경우도 진입점이 걸러 낸다. 셋 다 안 되면 `/kairos:status`의 「파이썬」 줄이 말한다.
+**슬래시 명령은 두 셸 중 있는 쪽에서 돈다.** 주입되는 줄이 `cd "<scripts>"; ./kairos-client …`라, 확장자 없는 쪽(sh 진입점)은 Git Bash가, `kairos-client.cmd`는 PowerShell이 `PATHEXT`로 고른다. **PowerShell 경로는 실측하지 못했다** — 안 되면 알려 주면 좋겠다.
 
 **설정과 상태는 POSIX 관례 자리에 놓인다.** 토큰 파일은 `%USERPROFILE%\.config\kairos\token`, 보낸 자리 기억은 `%USERPROFILE%\.local\state\kairos\archive`다. 동작에는 지장이 없고 옮기고 싶으면 `KAIROS_TOKEN_FILE`·`KAIROS_ARCHIVE_STATE`를 준다. 주소를 적는 `~/.claude/settings.json`은 Claude Code 자신의 자리라 `%USERPROFILE%\.claude`로 풀린다.
 

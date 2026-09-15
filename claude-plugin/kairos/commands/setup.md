@@ -1,12 +1,13 @@
 ---
 description: KAIROS 게이트웨이 주소를 이 기계에 적는다 (건너뛸 수 있다) — /kairos:setup [주소]
-allowed-tools: Bash("${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client:*)
+allowed-tools: Bash(cd:*), Bash(./kairos-client:*), PowerShell(cd:*), PowerShell(./kairos-client:*)
 ---
 
 아래는 방금 실행한 결과다. 인자를 받았으면 그 주소를 적었고, 없으면 지금 상태만 보였다.
+훅이 쓸 파이썬도 이 기계의 절대 경로로 함께 적었다.
 
 ```
-!`"${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client setup --set-url "$ARGUMENTS" 2>&1`
+!`cd "${CLAUDE_PLUGIN_ROOT}/scripts"; ./kairos-client setup --set-url "$ARGUMENTS" 2>&1`
 ```
 
 **출력에 「건너뜀」이 있으면** 사용자에게 게이트웨이 주소를 한 문장으로 묻는다. 같은 기계에서
@@ -14,11 +15,11 @@ allowed-tools: Bash("${CLAUDE_PLUGIN_ROOT}"/scripts/kairos-client:*)
 저장고를 쓸 때만 `http://<서버>:8080/mcp` 꼴로 적으면 된다는 것을 함께 말한다. **건너뛰어도
 된다**고 분명히 말한다. 답을 받으면 같은 명령을 `--set-url <답>`으로 다시 실행한다.
 
-**출력의 `python3` 줄이 「PATH에 없다」면** 그것을 먼저 알린다. 그 상태로도 MCP 조회는
-되지만 훅(자동 보관·세션 마감)이 돌지 않는다. 줄에 적힌 조치를 그대로 전한다.
+**출력의 「훅 파이썬」 줄이 실패라면** 그것을 먼저 알린다. 그 상태로도 MCP 조회는 되지만
+훅(자동 보관·세션 마감)이 돌지 않는다. 줄에 적힌 조치를 그대로 전한다.
 
 조회 툴을 매번 승인하지 않으려면 `--allow-reads`를 함께 줄 수 있다고 한 줄로 알린다 — 쓰기
 3종은 넣지 않으며, 그것이 보관을 매번 확인받는다는 뜻이다.
 
-주소를 바꿨으면 **Claude Code를 다시 시작해야** MCP 연결이 새 주소를 쓴다. 출력에 없는 것을
+주소나 훅 파이썬을 바꿨으면 **Claude Code를 다시 시작해야** 새 값이 쓰인다. 출력에 없는 것을
 추측해 말하지 않는다.

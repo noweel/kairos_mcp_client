@@ -1,7 +1,7 @@
 {
   "name": "kairos",
   "displayName": "KAIROS 지식저장고",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "개인 지식저장고 KAIROS를 붙인다 — MCP 툴 11종, 대화 보관 훅, 사용 정책 스킬, /kairos:setup·/kairos:status·/kairos:archive",
   "author": {
     "name": "noweel"
@@ -12,5 +12,13 @@
     "knowledge-base",
     "mcp",
     "archive"
-  ]
+  ],
+  "userConfig": {
+    "python": {
+      "type": "string",
+      "title": "훅이 쓸 파이썬",
+      "description": "대화 보관 훅을 돌릴 파이썬 실행 파일. 설치기(install.py)와 /kairos:setup이 이 기계의 절대 경로를 적는다. 직접 적어도 된다 — Windows는 보통 …\\Python3xx\\python.exe다.",
+      "default": "python3"
+    }
+  }
 }
