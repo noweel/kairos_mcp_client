@@ -4,7 +4,7 @@ OpenAI Codex CLI를 KAIROS 지식저장고에 붙이는 묶음입니다. Codex�
 
 | 요소 | 놓이는 자리 | 하는 일 |
 |---|---|---|
-| MCP 서버 등록 | `~/.codex/config.toml`의 `[mcp_servers.kairos]` | 게이트웨이의 `/mcp`에 툴 9종을 연결합니다. `X-KAIROS-Client: codex` 헤더를 실어 노트에 인입 경로가 기록됩니다 |
+| MCP 서버 등록 | `~/.codex/config.toml`의 `[mcp_servers.kairos]` | 게이트웨이의 `/mcp`에 툴 11종을 연결합니다. `X-KAIROS-Client: codex` 헤더를 실어 노트에 인입 경로가 기록됩니다 |
 | 훅 2종 | `~/.codex/hooks.json`의 `Stop`·`SessionEnd` | 턴 전송과 세션 마감. **등록만 되고 켜져 있지는 않습니다**(아래 「자동 보관」) |
 | 스킬 3종 | `~/.codex/skills/{kairos,kairos-status,kairos-archive}/SKILL.md` | 사용 정책(`kairos`), 연결 상태(`$kairos-status`), 명시 보관(`$kairos-archive`). Codex는 슬래시 명령이 아니라 스킬로 부릅니다 |
 | 클라이언트 스크립트 | `~/.codex/kairos/kairos-client` | 훅과 스킬이 부르는 본체. Claude Code 플러그인의 스크립트와 **같은 파일**이며(`scripts/kairos-client`는 그쪽을 가리키는 심볼릭 링크), 표준 라이브러리만 씁니다 |

@@ -34,13 +34,14 @@ export KAIROS_URL=http://<서버>:8080/mcp
 export KAIROS_TOKEN=$(cat ~/.config/kairos/token)   # 서버에서 복사해 온 값
 ```
 
-**권한.** 플러그인이 붙인 MCP 툴의 권한 식별자는 `mcp__plugin_kairos_kairos__<툴>`이다(실측 2026-09-04 — 플러그인 경유라 서버 이름 앞에 `plugin_kairos_`가 붙는다). Claude Code는 `readOnlyHint`로 자동 승인하지 않으므로 조회 6종을 묻지 않게 하려면 `~/.claude/settings.json`의 `permissions.allow`에 이름을 적는다. 쓰기 3종(`archive_turn`·`finalize_session`·`add_knowledge`)은 넣지 않는다 — 매번 확인받는 편이 맞다.
+**권한.** 플러그인이 붙인 MCP 툴의 권한 식별자는 `mcp__plugin_kairos_kairos__<툴>`이다(실측 2026-09-04 — 플러그인 경유라 서버 이름 앞에 `plugin_kairos_`가 붙는다). Claude Code는 `readOnlyHint`로 자동 승인하지 않으므로 조회 8종을 묻지 않게 하려면 `~/.claude/settings.json`의 `permissions.allow`에 이름을 적는다. 쓰기 3종(`archive_turn`·`finalize_session`·`add_knowledge`)은 넣지 않는다 — 매번 확인받는 편이 맞다.
 
 ```json
 { "permissions": { "allow": [
   "mcp__plugin_kairos_kairos__search_knowledge", "mcp__plugin_kairos_kairos__get_note",
   "mcp__plugin_kairos_kairos__get_source",       "mcp__plugin_kairos_kairos__get_related",
-  "mcp__plugin_kairos_kairos__list_by_filter",   "mcp__plugin_kairos_kairos__export_graph"
+  "mcp__plugin_kairos_kairos__list_by_filter",   "mcp__plugin_kairos_kairos__list_vocabulary",
+  "mcp__plugin_kairos_kairos__trace_ingest",     "mcp__plugin_kairos_kairos__export_graph"
 ] } }
 ```
 

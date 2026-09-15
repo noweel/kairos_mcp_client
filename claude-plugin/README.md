@@ -4,7 +4,7 @@ Claude Code를 KAIROS 지식저장고에 붙이는 플러그인입니다. 설치
 
 | 요소 | 파일 | 하는 일 |
 |---|---|---|
-| MCP 서버 등록 | `kairos/.mcp.json` | 게이트웨이의 `/mcp`에 툴 9종(조회 6·인입 3)을 연결합니다. 요청마다 `X-KAIROS-Client: claude-code` 헤더를 보내 노트에 인입 경로가 기록됩니다 |
+| MCP 서버 등록 | `kairos/.mcp.json` | 게이트웨이의 `/mcp`에 툴 11종(조회 8·인입 3)을 연결합니다. 요청마다 `X-KAIROS-Client: claude-code` 헤더를 보내 노트에 인입 경로가 기록됩니다 |
 | 훅 2종 | `kairos/hooks/hooks.json` | `Stop`(턴 전송)·`SessionEnd`(세션 마감). **등록만 되고 켜져 있지는 않습니다**(아래 「자동 보관」) |
 | 사용 정책 스킬 | `kairos/skills/kairos/SKILL.md` | "언제 저장고를 먼저 보는가"를 Claude에게 줍니다. 툴이 있어도 이것이 없으면 거의 부르지 않습니다 |
 | 슬래시 명령 | `kairos/commands/status.md`·`archive.md` | `/kairos:status`(연결 상태), `/kairos:archive`(이 대화를 명시 보관) |
@@ -89,13 +89,14 @@ kairos-client replay --project <프로젝트 경로>          # /kairos:archive�
 
 ## 권한 프롬프트 줄이기
 
-플러그인이 붙인 툴의 권한 식별자는 `mcp__plugin_kairos_kairos__<툴>`입니다(서버 이름 앞에 `plugin_kairos_`가 붙습니다). 조회 6종을 묻지 않게 하려면 `~/.claude/settings.json`에 적습니다. 인입 3종(`add_knowledge`·`archive_turn`·`finalize_session`)은 넣지 않는 편이 맞습니다. 매번 확인받는 것이 보관의 뜻에 맞기 때문입니다.
+플러그인이 붙인 툴의 권한 식별자는 `mcp__plugin_kairos_kairos__<툴>`입니다(서버 이름 앞에 `plugin_kairos_`가 붙습니다). 조회 8종을 묻지 않게 하려면 `~/.claude/settings.json`에 적습니다. 인입 3종(`add_knowledge`·`archive_turn`·`finalize_session`)은 넣지 않는 편이 맞습니다. 매번 확인받는 것이 보관의 뜻에 맞기 때문입니다.
 
 ```json
 { "permissions": { "allow": [
   "mcp__plugin_kairos_kairos__search_knowledge", "mcp__plugin_kairos_kairos__get_note",
   "mcp__plugin_kairos_kairos__get_source",       "mcp__plugin_kairos_kairos__get_related",
-  "mcp__plugin_kairos_kairos__list_by_filter",   "mcp__plugin_kairos_kairos__export_graph"
+  "mcp__plugin_kairos_kairos__list_by_filter",   "mcp__plugin_kairos_kairos__list_vocabulary",
+  "mcp__plugin_kairos_kairos__trace_ingest",     "mcp__plugin_kairos_kairos__export_graph"
 ] } }
 ```
 
