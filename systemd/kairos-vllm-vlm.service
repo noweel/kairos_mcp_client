@@ -11,7 +11,7 @@ EnvironmentFile=%h/.config/kairos/kairos.env
 # config도 함께 바꾼다.
 ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/vllm" serve "$KAIROS_VLM_MODEL" \
   --served-model-name "$KAIROS_VLM_MODEL_NAME" \
-  --host 127.0.0.1 --port 8001'
+  --host "$${KAIROS_MODEL_HOST:-127.0.0.1}" --port 8001'
 Restart=no
 TimeoutStartSec=600
 

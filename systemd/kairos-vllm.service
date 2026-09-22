@@ -21,7 +21,7 @@ ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/vllm" serve "$KAIROS_TEXT_MODEL" \
   --default-chat-template-kwargs "$KAIROS_TEXT_CHAT_KWARGS" \
   --structured-outputs-config "$KAIROS_TEXT_STRUCTURED" \
   --max-num-seqs 1 \
-  --host 127.0.0.1 --port 8000'
+  --host "$${KAIROS_MODEL_HOST:-127.0.0.1}" --port 8000'
 # `--max-num-seqs 1`은 티어값이 아니라 KAIROS의 결정이다 — 동시 요청 제한은 수신기가
 # 결정적으로 제어한다(기획서 §7.1). Normalizer의 출력 상한 근거도 이 값에 걸려 있다.
 Restart=on-failure

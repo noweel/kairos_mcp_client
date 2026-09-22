@@ -6,7 +6,7 @@ After=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=%h/.config/kairos/kairos.env
-ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/kairos" embed serve --host 127.0.0.1 --port 8002'
+ExecStart=/bin/sh -c 'exec "$KAIROS_BIN/kairos" embed serve --host "$${KAIROS_MODEL_HOST:-127.0.0.1}" --port 8002'
 Restart=on-failure
 RestartSec=10
 # 최초 실행은 가중치를 내려받는다(약 2.7GB)
